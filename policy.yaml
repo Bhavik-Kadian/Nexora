@@ -1,0 +1,87 @@
+# SecureGate policy: decides what happens to each possible secret the scanner finds.
+#
+# HOW IT WORKS
+#   Rules are checked from top to bottom. The FIRST rule that matches decides.
+#   Each rule has:
+#     name         a short label, shown in reports
+#     when         the conditions; leave `when` out to match everything
+#     decision     block  = stop the change (SecureGate exits with code 1)
+#                  warn   = report it, but let the change through
+#                  ignore = not a real secret; kept in findings.json only
+#     severity     critical, high, medium, low or info
+#     reason       why the rule exists (shown in reports)
+#     remediation  what the developer should do next
+#
+# CONDITIONS
+#   All conditions under `when` must be true. Inside one list, one match is enough.
+#   value_matches  regular expressions checked against the secret value itself. They run in
+#                  memory before masking; the value is never stored. Start a pattern with (?i)
+#                  to ignore upper/lower case.
+#   path_matches   file path patterns: ** means any folders, * means any characters in one name.
+#   rule_ids       scanner rule names, such as aws-access-token (see .gitleaks.toml).
+#   min_entropy    matches when the value's randomness score is at least this number
+#                  (random keys score about 4 to 6, ordinary words about 2 to 3).
+#
+# The last rule must have no `when`, so that every finding gets a decision.
+
+version: 1
+
+rules:
+  - name: placeholders
+    when:
+      value_matches:
+        - '(?i)your_\w*_here'   # YOUR_..._HERE
+        - '(?i)changeme'
+        - 'EXAMPLE'             # the example keys in AWS documentation contain EXAMPLE
+        - '(?i)x{8,}'           # xxxxxxxx
+        - '(?i)dummy'
+    decision: ignore
+    severity: info
+    reason: The value looks like a placeholder or a documentation example, not a real secret.
+    remediation: No action needed.
+
+  - name: tests-fixtures-docs
+    when:
+      path_matches:
+        - '**/tests/**'
+        - '**/fixtures/**'
+        - '**/docs/**'
+    decision: warn
+    severity: low
+    reason: Found in tests, fixtures or docs, where fake values are common.
+    remediation: Make sure the value is fake. If it is real, rotate it and replace it with a fake.
+
+  - name: provider-keys
+    when:
+      rule_ids:
+        - acme-pay-token
+        - aws-access-token
+        - aws-amazon-bedrock-api-key-long-lived
+        - aws-amazon-bedrock-api-key-short-lived
+        - stripe-access-token
+        - private-key
+    decision: block
+    severity: critical
+    reason: A payment, cloud or private key gives direct access to money, data or servers.
+    remediation: >-
+      Treat it as leaked. Rotate (replace) the key at the provider now, remove it from the
+      code, and load it from an environment variable or a secrets manager instead.
+
+  - name: github-tokens
+    when:
+      rule_ids:
+        - github-pat
+        - github-fine-grained-pat
+        - github-oauth
+        - github-app-token
+        - github-refresh-token
+    decision: block
+    severity: high
+    reason: A GitHub token gives access to source code and can change it.
+    remediation: Revoke the token in GitHub settings, create a new one, and keep it out of the code.
+
+  - name: everything-else
+    decision: warn
+    severity: medium
+    reason: A possible secret that no more specific rule covers.
+    remediation: Check whether it is a real secret. If it is, rotate it and move it out of the code.
