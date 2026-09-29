@@ -1,0 +1,22 @@
+"""{{ app_name }} web service entry point."""
+
+import os
+
+from flask import Flask, jsonify, request
+
+from payments.stripe_client import charge_card
+
+{{ plant_here }}
+
+app = Flask(__name__)
+
+
+@app.post("/checkout")
+def checkout():
+    order = request.get_json()
+    receipt = charge_card(order["amount"], order["currency"], order["source"])
+    return jsonify(receipt), 201
+
+
+if __name__ == "__main__":
+    app.run(port=int(os.environ.get("PORT", "8080")))

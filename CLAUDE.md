@@ -24,7 +24,7 @@ compare masked values, counts or booleans instead.
 ## Commands
 - `make setup`: create .venv on Python 3.12 and install with dev extras
 - `make test` / `make lint` / `make check` (lint + test; run before every commit)
-- `make demo`: build the demo repo in ../securegate-demo (arrives in milestone 5)
+- `make demo`: build the demo repo in ../securegate-demo (from src/securegate/demo/catalog.yaml)
 - `make scan-demo`: scan it; SecureGate exits 1 because blocked findings are expected
 
 ## Environment

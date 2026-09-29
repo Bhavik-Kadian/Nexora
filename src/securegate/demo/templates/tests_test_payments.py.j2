@@ -1,0 +1,8 @@
+"""Tests for the {{ app_name }} payments client."""
+
+{{ plant_here }}
+
+
+def test_receipt_keeps_the_amount():
+    receipt = {"id": "ch_1", "status": "succeeded", "amount": 500}
+    assert receipt["amount"] == 500

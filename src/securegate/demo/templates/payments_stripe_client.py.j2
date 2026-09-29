@@ -1,0 +1,11 @@
+"""Thin wrapper around the Stripe API, used by {{ app_name }}."""
+
+import stripe
+
+{{ plant_here }}
+
+
+def charge_card(amount: int, currency: str, source: str) -> dict:
+    """Charge a card and return a small receipt."""
+    charge = stripe.Charge.create(amount=amount, currency=currency, source=source)
+    return {"id": charge.id, "status": charge.status, "amount": amount}

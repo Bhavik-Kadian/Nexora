@@ -1,0 +1,13 @@
+"""Settings for the {{ app_name }} payments service."""
+
+import os
+
+DEBUG = os.environ.get("DEBUG", "false") == "true"
+ALLOWED_HOSTS = ["demopay.example.com"]
+DEFAULT_CURRENCY = "usd"
+
+# Receipts are stored in cloud storage.
+RECEIPTS_BUCKET = "demopay-receipts"
+{{ plant_here }}
+
+REQUEST_TIMEOUT_SECONDS = 30

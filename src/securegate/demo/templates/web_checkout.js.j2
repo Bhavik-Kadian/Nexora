@@ -1,0 +1,13 @@
+// {{ app_name }} checkout page
+{{ plant_here }}
+
+async function pay(amount, currency, source) {
+  const response = await fetch("/checkout", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount, currency, source }),
+  });
+  return response.json();
+}
+
+export { pay };

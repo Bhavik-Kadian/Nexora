@@ -1,0 +1,147 @@
+# SecureGate demo catalog: what to plant in the demo repository.
+#
+# The demo repo is a small fake payments app ("DemoPay") with secrets and look-alike decoys
+# planted in it. SecureGate scans it, and the results are compared with the `expected`
+# decisions written here. After editing this file:
+#     make demo        rebuild the demo repo in ../securegate-demo
+#     make scan-demo   scan it and see the masked results
+#     make test        the integration test prints a scorecard at the end
+#
+# Each item plants ONE thing:
+#   kind       what to plant (all kinds are listed at the bottom of this file)
+#   file       where to put it, inside the demo repo (use / between folders)
+#   placement  current      = stays in the latest version of the code
+#              history-only = added in an early commit and deleted in a later commit.
+#                             It needs a file of its own, because the whole file is deleted.
+#   expected   what SecureGate SHOULD decide: block, warn or ignore
+#   name       (optional) the variable name to use, for example STRIPE_SECRET_KEY
+#   variant    (optional, placeholder only) your_here, changeme, xxxx or dummy
+#   note       (optional) anything you want to remember about the item
+#
+# Values are made up fresh from a seed (make demo uses seed 42), and the same seed always
+# builds exactly the same repo. No real secret is ever used.
+
+items:
+  # --- Secrets: these should be caught -----------------------------------------------------
+  - kind: aws_key_pair
+    file: config/settings.py
+    placement: current
+    expected: block
+    note: Two lines, the access key id and the secret access key.
+
+  - kind: stripe_live
+    file: payments/stripe_client.py
+    placement: current
+    expected: block
+
+  - kind: github_pat
+    file: .env
+    placement: current
+    expected: block
+    note: A .env file that should never have been committed.
+
+  - kind: acme_token
+    file: web/checkout.js
+    placement: current
+    expected: block
+    note: A payment key shipped to the browser.
+
+  - kind: private_key_block
+    file: deploy/server.key
+    placement: current
+    expected: block
+
+  - kind: db_url_password
+    file: config/app.yaml
+    placement: current
+    expected: warn
+    note: The password sits inside a database URL.
+
+  - kind: generic_password
+    file: Dockerfile
+    placement: current
+    expected: warn
+
+  - kind: stripe_live
+    file: scripts/migrate_customers.py
+    placement: history-only
+    expected: block
+    note: Deleted in a later commit, but still in the Git history.
+
+  # --- Decoys: these look like secrets but are not -----------------------------------------
+  - kind: placeholder
+    variant: your_here
+    file: .env.example
+    placement: current
+    expected: ignore
+
+  - kind: placeholder
+    variant: changeme
+    file: docker-compose.yml
+    placement: current
+    expected: ignore
+
+  - kind: placeholder
+    variant: xxxx
+    file: docs/payments.md
+    placement: current
+    expected: ignore
+    note: Shaped like an ACME Pay key, but all x's.
+
+  - kind: aws_docs_example
+    file: docs/aws-setup.md
+    placement: current
+    expected: ignore
+
+  - kind: uuid
+    file: config/app.yaml
+    placement: current
+    expected: ignore
+
+  - kind: git_sha
+    file: web/version.js
+    placement: current
+    expected: ignore
+
+  - kind: base64_image
+    file: web/logo.js
+    placement: current
+    expected: ignore
+
+  - kind: minified_js
+    file: web/static/vendor.min.js
+    placement: current
+    expected: ignore
+
+  - kind: lockfile_integrity
+    file: package-lock.json
+    placement: current
+    expected: ignore
+
+  - kind: test_fixture_key
+    file: tests/fixtures/stripe_webhook.json
+    placement: current
+    expected: warn
+    note: A Stripe test key in a test fixture. The policy warns about keys in tests.
+
+# KINDS
+#   Secrets (is_secret = true in ground_truth.csv):
+#     aws_key_pair        AWS access key id + secret access key (two lines)
+#     stripe_live         Stripe live secret key
+#     github_pat          GitHub personal access token
+#     acme_token          ACME Pay token (our invented payment provider)
+#     private_key_block   an RSA private key in PEM format (many lines)
+#     db_url_password     a database URL with a password inside
+#     generic_password    a password written into a variable
+#   Decoys (is_secret = false):
+#     placeholder         YOUR_..._HERE, changeme, xxxx... or dummy_... (choose with variant)
+#     aws_docs_example    the example key pair printed in AWS documentation
+#     uuid                a random UUID, used as an API client id
+#     git_sha             a 40-character commit hash, used as a cache key
+#     base64_image        a small image written inline as base64
+#     minified_js         one long line of minified JavaScript
+#     lockfile_integrity  an integrity hash in package-lock.json
+#     test_fixture_key    a Stripe test key inside a test fixture
+#
+# Some kinds only fit some files: private_key_block needs a .py, .yaml, .js, .md or plain
+# file (like .key); minified_js needs a .js file; lockfile_integrity needs a .json file.

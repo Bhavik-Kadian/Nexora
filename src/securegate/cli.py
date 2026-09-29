@@ -13,6 +13,8 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from securegate import __version__
+from securegate.demo.app import AUTHOR_NAME
+from securegate.demo.generator import generate
 from securegate.errors import SecureGateError
 from securegate.mask import default_state_dir, load_hmac_key
 from securegate.pipeline import run_scan
@@ -50,6 +52,17 @@ def build_parser() -> argparse.ArgumentParser:
         "--gitleaks-config", default=".gitleaks.toml", help="Gitleaks config (default: %(default)s)"
     )
 
+    demo = commands.add_parser("demo-repo", help="build the demo repo with planted secrets")
+    demo.add_argument(
+        "--out",
+        default="../securegate-demo",
+        help="folder to build it in, outside any Git repository (default: %(default)s)",
+    )
+    demo.add_argument("--seed", type=int, default=42, help="same seed, same repo (default: 42)")
+    demo.add_argument(
+        "--force", action="store_true", help="rebuild a folder made by an earlier demo-repo run"
+    )
+
     commands.add_parser("version", help="print the SecureGate and Gitleaks versions")
     return parser
 
@@ -61,6 +74,8 @@ def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = 
     try:
         if args.command == "version":
             return _version(runner)
+        if args.command == "demo-repo":
+            return _demo_repo(args)
         return _scan(args, runner)
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -133,6 +148,18 @@ def _write_error_report(out: Path, report_fields: dict[str, str | None], message
             out,
             envelope(exit_code=EXIT_ERROR, scanner_version=None, error=message, **report_fields),
         )
+
+
+def _demo_repo(args: argparse.Namespace) -> int:
+    result = generate(Path(args.out), seed=args.seed, force=args.force)
+    secrets = sum(line.is_secret for line in result.planted)
+    decoys = len(result.planted) - secrets
+    print(f"Demo repo ready: {result.out}")
+    print(f"  {len(result.commits)} commits by {AUTHOR_NAME}, seed {result.seed}")
+    print(f"  planted: {secrets} secret lines and {decoys} decoy lines")
+    print(f"  ground truth: {result.ground_truth}")
+    print("Next: scan it with `make scan-demo`")
+    return EXIT_PASS
 
 
 def _version(runner: gitleaks.Runner) -> int:

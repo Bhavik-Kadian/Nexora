@@ -9,16 +9,43 @@ from typing import Any
 
 import pytest
 
-from helpers import GitRepo
+from helpers import GitRepo, git_installed
 from securegate.cli import main
+from securegate.demo.generator import DemoResult, generate
 from securegate.mask import KEY_ENV_VAR
 from securegate.scanners.gitleaks import Runner
+
+SCORECARDS = pytest.StashKey[list[str]]()
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.stash[SCORECARDS] = []
+
+
+def pytest_terminal_summary(terminalreporter, exitstatus: int, config: pytest.Config) -> None:
+    """Print the demo scorecards (recorded by test_integration.py) at the end of the run."""
+    for card in config.stash.get(SCORECARDS, []):
+        terminalreporter.section("SecureGate demo scorecard")
+        terminalreporter.write_line(card)
+
+
+@pytest.fixture
+def record_scorecard(request: pytest.FixtureRequest) -> Callable[[str], None]:
+    return request.config.stash[SCORECARDS].append
 
 
 @pytest.fixture(autouse=True)
 def _fresh_hmac_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """Give every test its own random fingerprint key, so no test creates .securegate/ here."""
     monkeypatch.setenv(KEY_ENV_VAR, secrets.token_hex(32))
+
+
+@pytest.fixture(scope="session")
+def demo_repo(tmp_path_factory: pytest.TempPathFactory) -> DemoResult:
+    """The demo repo from the packaged catalog with seed 42, built once per test run."""
+    if not git_installed():
+        pytest.skip("git is not installed")
+    return generate(tmp_path_factory.mktemp("demo") / "securegate-demo", seed=42)
 
 
 @dataclass

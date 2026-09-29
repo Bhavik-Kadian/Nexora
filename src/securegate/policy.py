@@ -6,16 +6,14 @@ entry is enough (OR). A rule without `when` matches everything. The last rule mu
 that, so every finding gets a decision.
 """
 
-import difflib
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-import yaml
-
 from securegate.errors import ConfigError
 from securegate.finding import DECISIONS, SEVERITIES, Decision, Severity
+from securegate.validate import load_yaml_file, reject_unknown_keys
 
 POLICY_VERSION = 1
 TOP_KEYS = ("version", "rules")
@@ -130,24 +128,14 @@ def glob_to_regex(pattern: str) -> re.Pattern[str]:
 
 def load_policy(path: Path) -> Policy:
     """Read and validate a policy file. Any problem raises ConfigError (exit code 2)."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        raise ConfigError(f"policy file not found: {path}") from None
-    except OSError as err:
-        raise ConfigError(f"cannot read policy file {path}: {err}") from None
-    try:
-        data = yaml.safe_load(text)
-    except yaml.YAMLError as err:
-        raise ConfigError(f"{path} is not valid YAML: {_describe_yaml_error(err)}") from None
-    return parse_policy(data, source=str(path))
+    return parse_policy(load_yaml_file(path, "policy file"), source=str(path))
 
 
 def parse_policy(data: object, source: str = "policy.yaml") -> Policy:
     """Validate already-parsed YAML and build a Policy."""
     if not isinstance(data, Mapping):
         raise ConfigError(f"{source}: expected 'version: {POLICY_VERSION}' and a 'rules:' list")
-    _reject_unknown_keys(data, TOP_KEYS, where=source)
+    reject_unknown_keys(data, TOP_KEYS, where=source)
     if data.get("version") != POLICY_VERSION:
         raise ConfigError(f"{source}: 'version' must be {POLICY_VERSION}")
     raw_rules = data.get("rules")
@@ -179,7 +167,7 @@ def _parse_rule(item: object, number: int, source: str) -> PolicyRule:
         raise ConfigError(f"{source}: rule #{number} must have name, decision and severity")
     name = item.get("name")
     label = f"{source}: rule #{number}" + (f" ('{name}')" if isinstance(name, str) else "")
-    _reject_unknown_keys(item, RULE_KEYS, where=label)
+    reject_unknown_keys(item, RULE_KEYS, where=label)
     if not isinstance(name, str) or not name.strip():
         raise ConfigError(f"{label}: 'name' must be a non-empty text")
     decision = item.get("decision")
@@ -205,7 +193,7 @@ def _parse_conditions(raw: object, label: str) -> Conditions:
             "To match everything, remove 'when' instead."
         )
     where = f"{label}, under 'when'"
-    _reject_unknown_keys(raw, CONDITION_KEYS, where=where)
+    reject_unknown_keys(raw, CONDITION_KEYS, where=where)
     return Conditions(
         value_patterns=tuple(
             _compile_regex(p, where) for p in _text_list(raw, "value_matches", where)
@@ -267,23 +255,3 @@ def _optional_text(item: Mapping[object, object], key: str, label: str) -> str:
     if not isinstance(value, str):
         raise ConfigError(f"{label}: '{key}' must be text")
     return " ".join(value.split())
-
-
-def _reject_unknown_keys(
-    mapping: Mapping[object, object], allowed: Sequence[str], where: str
-) -> None:
-    for key in mapping:
-        if key not in allowed:
-            close = difflib.get_close_matches(str(key), allowed, n=1)
-            hint = f" (did you mean '{close[0]}'?)" if close else ""
-            raise ConfigError(
-                f"{where}: unknown key '{key}'{hint}. Allowed keys: {', '.join(allowed)}"
-            )
-
-
-def _describe_yaml_error(err: yaml.YAMLError) -> str:
-    mark = getattr(err, "problem_mark", None)
-    problem = getattr(err, "problem", None) or "syntax error"
-    if mark is None:
-        return str(problem)
-    return f"{problem} (line {mark.line + 1}, column {mark.column + 1})"

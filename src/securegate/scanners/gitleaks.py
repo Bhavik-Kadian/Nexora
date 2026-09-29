@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Literal, get_args
 
 from securegate.errors import ConfigError, ScannerError
+from securegate.programs import find_program
 
 Mode = Literal["repo", "range", "staged", "dir"]
 MODES: tuple[Mode, ...] = get_args(Mode)
@@ -103,21 +104,11 @@ class ScanOutput:
 
 
 def find_gitleaks(path_env: str | None = None) -> Path:
-    """Find the gitleaks program in the PATH folders.
-
-    Relative PATH entries such as "." are skipped: a scanned repository could contain a fake
-    gitleaks program, and Windows would otherwise run it from the current folder.
-    """
-    names = ("gitleaks.exe", "gitleaks") if os.name == "nt" else ("gitleaks",)
-    search = os.environ.get("PATH", "") if path_env is None else path_env
-    for folder in search.split(os.pathsep):
-        if not folder or not os.path.isabs(folder):
-            continue
-        for name in names:
-            candidate = Path(folder) / name
-            if candidate.is_file() and (os.name == "nt" or os.access(candidate, os.X_OK)):
-                return candidate
-    raise GitleaksNotFound(f"Gitleaks was not found. {INSTALL_HINT}")
+    """Find the gitleaks program in the PATH folders (never in the current folder)."""
+    program = find_program("gitleaks", path_env)
+    if program is None:
+        raise GitleaksNotFound(f"Gitleaks was not found. {INSTALL_HINT}")
+    return program
 
 
 def subprocess_runner(args: Sequence[str]) -> RunResult:
