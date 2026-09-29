@@ -1,0 +1,29 @@
+# SecureGate's Gitleaks configuration (tested with Gitleaks 8.30.1).
+#
+# Gitleaks FINDS possible secrets; SecureGate's policy.yaml then DECIDES block / warn / ignore.
+# This file starts from Gitleaks' built-in rules and adds our own on top.
+# Format: https://github.com/gitleaks/gitleaks#configuration
+
+title = "SecureGate"
+
+[extend]
+# Keep every built-in Gitleaks rule (AWS, Stripe, GitHub, private keys, generic keys, ...).
+useDefault = true
+
+# ACME Pay is an invented payment provider used in SecureGate's demo repos.
+# Its tokens are acme_live_ or acme_test_ followed by exactly 32 letters and digits.
+# There is deliberately no entropy filter: placeholders such as acme_live_xxxx... are still
+# reported, so that policy.yaml (not this file) is the place that decides to ignore them.
+[[rules]]
+id = "acme-pay-token"
+description = "ACME Pay API token"
+regex = '''\bacme_(?:live|test)_[A-Za-z0-9]{32}\b'''
+keywords = ["acme_live_", "acme_test_"]
+tags = ["acme", "payments"]
+
+# Python virtual environments hold third-party packages, not our code. Gitleaks' built-in
+# list misses the Windows layout (.venv/Lib/site-packages/...), so we add it here.
+# Never add our own source files to an allowlist: fix the code instead.
+[[allowlists]]
+description = "Python virtual environments (third-party code)"
+paths = ['''(?:^|[\\/])\.?venv[\\/]''']
