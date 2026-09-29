@@ -1,0 +1,22 @@
+# Secrets and local environment files (the .env.example template stays)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# SecureGate local state (HMAC key) and outputs
+.securegate/
+securegate-demo/
+findings*.json
+reports/
+reference/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+build/
+dist/
