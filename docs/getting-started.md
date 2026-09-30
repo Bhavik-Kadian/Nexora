@@ -84,9 +84,17 @@ Stay in the SecureGate folder, because it holds the rules, and point SecureGate 
 
 The first scan creates a `.securegate` folder holding a private key for fingerprints. Keep it. Git ignores it automatically.
 
+## 6. See the results in your browser
+
+```powershell
+make ui
+```
+
+This opens the dashboard on the demo scan at `http://127.0.0.1:5000`, a page only your own computer can open. Select a finding to see how to fix it. Press Ctrl+C in PowerShell to stop the dashboard. For your own scan, use `.venv\Scripts\securegate ui --report findings.json --open`. More in [Dashboard](ui.md).
+
 ## On macOS or Linux
 
-Install the same tools, then follow steps 2 to 5 in a terminal.
+Install the same tools, then follow steps 2 to 6 in a terminal.
 
 ```bash
 # macOS, with Homebrew (https://brew.sh):
@@ -98,4 +106,4 @@ sudo apt install git make python3.12 python3.12-venv
 # Gitleaks for Linux: https://github.com/gitleaks/gitleaks/releases
 ```
 
-In step 5, use `.venv/bin/securegate` instead of `.venv\Scripts\securegate`.
+In steps 5 and 6, use `.venv/bin/securegate` instead of `.venv\Scripts\securegate`.

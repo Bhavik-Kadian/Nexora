@@ -90,3 +90,37 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 ## 22. Small helper modules added during the build
 - `demo/app.py`: the fake app's files and commit story. `programs.py`: finds `git` and `gitleaks` safely. `validate.py`: shared checks for `policy.yaml` and `catalog.yaml`.
 - **Why:** one job per module, and no copied code.
+
+## 23. The dashboard is local and read-only
+- **Chose:** a small Flask app that only reads one `findings.json`, answers only on 127.0.0.1 (this computer), and keeps debug off unless `--debug` is given.
+- **Why:** findings are sensitive even when masked, so nobody else on the network should reach them, and a report viewer has no reason to change anything.
+- **Rejected:** a shared web server, logins and editing (out of scope for now).
+
+## 24. No JavaScript, and it works offline
+- **Chose:** plain HTML and CSS. The Content-Security-Policy header forbids scripts, and every file comes from SecureGate itself.
+- **Why:** nothing to download, nothing to break, and nothing for a malicious report to run. It works on a laptop with no internet.
+- **Rejected:** JavaScript frameworks and chart libraries.
+
+## 25. Severity bars are HTML meters
+- **Chose:** one `<meter>` element per severity.
+- **Why:** screen readers read them as values, and they need no inline styles, which the strict security policy would block.
+
+## 26. The dashboard checks the masking again
+- **Chose:** every `masked_value` must have the masked shape (`****`, or 4 characters + `****` + 4). A report that breaks this is refused, not shown.
+- **Why:** a report edited by hand, or written by a future bug, must never put a whole secret on screen.
+
+## 27. No report means a helpful page
+- **Chose:** a missing, broken or failed report shows a page (HTTP 503) with the exact command that creates one. The report is read again for every page.
+- **Why:** the first thing a new user sees tells them what to do next, and a new scan appears after a reload.
+
+## 28. One detail page per secret
+- **Chose:** `/findings/<id>` lists every place where that secret was found.
+- **Why:** the id names the secret, not the place (see entry 7), and the fix (revoke and replace) is the same for all its places.
+
+## 29. Design tokens with Fluent 2 names
+- **Chose:** every colour, font size, spacing value and radius is a CSS variable in `tokens.css`, named like Fluent 2 tokens. Tests fail if `app.css` uses a raw value, or if text drops below WCAG AA contrast. Screens 1600 pixels and wider (projectors) get larger text and a wider page.
+- **Why:** the designers can drop in their Figma tokens by changing values only, without breaking accessibility.
+
+## 30. The sample report doubles the demo
+- **Chose:** `make sample-report` scans a demo repo holding the DemoPay app twice (once under `billing/`), which gives about 20 real findings.
+- **Why:** the usual demo scan has only 11 findings, and the designers need real data rather than invented rows.

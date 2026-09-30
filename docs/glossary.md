@@ -1,10 +1,16 @@
 # Glossary
 
+**127.0.0.1 (localhost)**: a web address that always means "this computer". The dashboard answers only there, so nobody else on the network can open it. Example: `http://127.0.0.1:5000`.
+
 **CI (continuous integration)**: a service that runs checks automatically every time someone proposes a change to a project. Example: GitHub shows a red cross on a pull request when a check fails. A later SecureGate version will run there as a merge gate.
 
 **Commit**: a saved snapshot of a project in Git, with a message, an author and a date.
 
+**Dashboard**: SecureGate's web pages that show a scan report in your browser. It only reads the report and only shows masked values. Example: `make ui`.
+
 **Decoy**: something that looks like a secret but is not. Example: a 40-character commit hash, or a placeholder.
+
+**Design token**: a named design value, such as a colour or a spacing, kept in one place so the whole design can be changed there. Example: `--color-brand-foreground-1: #0F6CBD` in `tokens.css`.
 
 **Entropy**: a score for how random a piece of text looks, in bits per character. Example: `aaaa` scores 0; a random key scores about 4 to 6. Scanners use it to tell keys from ordinary words.
 

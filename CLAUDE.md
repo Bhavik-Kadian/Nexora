@@ -15,8 +15,8 @@ decides (block / warn / ignore), and reports show secrets masked. The plan is in
    (missing Gitleaks, bad config, unreadable report). Errors fail closed: never exit 0 on an error.
 5. Small modules, type hints, pure functions where possible. The Gitleaks runner is injected so
    tests can fake it.
-6. Ask before adding any dependency beyond PyYAML, Jinja2 (runtime), pytest, ruff (dev) and
-   setuptools (build backend).
+6. Ask before adding any dependency beyond PyYAML, Jinja2, Flask (runtime), pytest, ruff (dev)
+   and setuptools (build backend).
 
 Test convention: never put a raw fake secret inside an `assert` (pytest prints the operands);
 compare masked values, counts or booleans instead.
@@ -26,6 +26,9 @@ compare masked values, counts or booleans instead.
 - `make test` / `make lint` / `make check` (lint + test; run before every commit)
 - `make demo`: build the demo repo in ../securegate-demo (from src/securegate/demo/catalog.yaml)
 - `make scan-demo`: scan it; SecureGate exits 1 because blocked findings are expected
+- `make ui`: read-only dashboard on the demo scan (127.0.0.1 only, masked values, no JavaScript;
+  design values only in src/securegate/ui/static/css/tokens.css)
+- `make sample-report`: write sample_findings.json (about 20 findings) for the designers
 
 ## Environment
 - Gitleaks 8.30.1 (winget). Use only flags listed by `gitleaks git --help` / `gitleaks dir --help`.

@@ -29,6 +29,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `finding.py` | The finding record. It can only hold a masked value. |
 | `report.py` | Prints the table and writes `findings.json`. |
 | `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. |
+| `ui/` | The read-only dashboard: `app.py` (the pages), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `server.py` (127.0.0.1 only), `templates/` and `static/css/`. |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
 
 ## The Finding format
@@ -76,5 +77,8 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change how values are masked | `src/securegate/mask.py` |
 | change the table or `findings.json` | `src/securegate/report.py` |
 | change the confidence score | `src/securegate/confidence.py` |
+| change the dashboard's colours, fonts or spacing | `src/securegate/ui/static/css/tokens.css` (see [Dashboard](ui.md)) |
+| change what a dashboard page shows | `src/securegate/ui/templates/` |
+| change the "How to fix" advice | `src/securegate/ui/fixes.py` |
 
 When you change a behavior, update the matching page in `docs/` in the same commit.

@@ -63,6 +63,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--force", action="store_true", help="rebuild a folder made by an earlier demo-repo run"
     )
 
+    ui = commands.add_parser("ui", help="show a report in the read-only dashboard")
+    ui.add_argument(
+        "--report", default="findings.json", help="report to show (default: %(default)s)"
+    )
+    ui.add_argument(
+        "--port", type=int, default=5000, help="port on 127.0.0.1 (default: %(default)s)"
+    )
+    ui.add_argument("--open", action="store_true", help="open the dashboard in your web browser")
+    ui.add_argument("--debug", action="store_true", help="print error details in this terminal")
+
+    sample = commands.add_parser(
+        "sample-report", help="write a sample findings file for designers (needs Gitleaks)"
+    )
+    sample.add_argument("--out", default="sample_findings.json", help="default: %(default)s")
+    sample.add_argument("--policy", default="policy.yaml", help="default: %(default)s")
+    sample.add_argument("--gitleaks-config", default=".gitleaks.toml", help="default: %(default)s")
+
     commands.add_parser("version", help="print the SecureGate and Gitleaks versions")
     return parser
 
@@ -76,6 +93,10 @@ def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = 
             return _version(runner)
         if args.command == "demo-repo":
             return _demo_repo(args)
+        if args.command == "ui":
+            return _ui(args)
+        if args.command == "sample-report":
+            return _sample_report(args, runner)
         return _scan(args, runner)
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -159,6 +180,28 @@ def _demo_repo(args: argparse.Namespace) -> int:
     print(f"  planted: {secrets} secret lines and {decoys} decoy lines")
     print(f"  ground truth: {result.ground_truth}")
     print("Next: scan it with `make scan-demo`")
+    return EXIT_PASS
+
+
+def _ui(args: argparse.Namespace) -> int:
+    from securegate.ui.server import serve  # Flask loads only when the dashboard is used
+
+    return serve(Path(args.report), port=args.port, debug=args.debug, open_browser=args.open)
+
+
+def _sample_report(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
+    from securegate.ui.sample import write_sample_report
+
+    result = write_sample_report(
+        Path(args.out),
+        policy=load_policy(Path(args.policy)),
+        policy_path=args.policy,
+        key=load_hmac_key(os.environ, default_state_dir()),
+        gitleaks_config=Path(args.gitleaks_config),
+        runner=runner,
+    )
+    print(f"Wrote {args.out}: {result.findings} findings from a demo scan, values masked.")
+    print(f"Open it with: securegate ui --report {args.out} --open")
     return EXIT_PASS
 
 
