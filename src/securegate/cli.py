@@ -15,6 +15,7 @@ from pathlib import Path
 from securegate import __version__
 from securegate.demo.app import AUTHOR_NAME
 from securegate.demo.generator import generate
+from securegate.demo.token import new_demo_token
 from securegate.errors import SecureGateError
 from securegate.mask import default_state_dir, load_hmac_key
 from securegate.pipeline import run_scan
@@ -86,6 +87,10 @@ def build_parser() -> argparse.ArgumentParser:
     sample.add_argument("--policy", default="policy.yaml", help="default: %(default)s")
     sample.add_argument("--gitleaks-config", default=".gitleaks.toml", help="default: %(default)s")
 
+    commands.add_parser(
+        "demo-token", help="print a new fake ACME Pay token, for demos of the merge gate"
+    )
+
     summary = commands.add_parser(
         "summary", help="print a short Markdown summary of a report (masked values only)"
     )
@@ -110,6 +115,9 @@ def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = 
             return _sample_report(args, runner)
         if args.command == "summary":
             return _summary(args)
+        if args.command == "demo-token":
+            print(new_demo_token())  # fake by design: ACME Pay does not exist
+            return EXIT_PASS
         return _scan(args, runner)
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
