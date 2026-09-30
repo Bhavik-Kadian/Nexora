@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block title %}Findings{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <h1>Findings</h1>
+  <p class="lede">Blocked findings come first, then warnings, then ignored ones. Open a row to see every detail and how to fix it.</p>
+</div>
+
+<nav aria-label="Filter by decision">
+  <ul class="filters__list">
+    <li><a class="filters__link" href="/findings"{% if decision is none %} aria-current="page"{% endif %}>All <span class="filters__count">{{ report.count() }}</span></a></li>
+    {% for value, label in [("block", "Block"), ("warn", "Warn"), ("ignore", "Ignore")] %}
+    <li><a class="filters__link" href="/findings?decision={{ value }}"{% if decision == value %} aria-current="page"{% endif %}>{{ label }} <span class="filters__count">{{ report.count(value) }}</span></a></li>
+    {% endfor %}
+  </ul>
+</nav>
+
+{% if unknown_filter %}
+<p class="notice">There is no decision called “{{ unknown_filter }}”, so all findings are shown.</p>
+{% endif %}
+
+<div class="table-wrap" role="region" aria-labelledby="findings-caption" tabindex="0">
+  {% if rows %}
+  <table class="table table--findings">
+    <caption id="findings-caption">{{ rows | length }} {{ "finding" if rows | length == 1 else "findings" }}{% if decision %} with decision {{ decision | upper }}{% else %}, blocked first{% endif %}</caption>
+    <thead>
+      <tr>
+        <th scope="col">Decision</th>
+        <th scope="col">Rule</th>
+        <th scope="col">File:line</th>
+        <th scope="col">Masked value</th>
+        <th scope="col">Reason</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in rows %}
+      <tr>
+        <td>{{ badge(f.decision) }}</td>
+        <td class="nowrap">{{ f.rule }}</td>
+        <td><a class="row-link" href="/findings/{{ f.id }}">{{ f.location }}</a></td>
+        <td class="nowrap"><code>{{ f.masked_value }}</code></td>
+        <td>{% if f.policy_rule %}<span class="reason__rule">{{ f.policy_rule }}</span> <span class="reason__text">{{ f.reason_text }}</span>{% else %}{{ f.reason }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty" id="findings-caption">{% if decision %}No findings with decision {{ decision | upper }}.{% else %}No findings: the scan found nothing to report.{% endif %}</p>
+  {% endif %}
+</div>
+{% endblock %}

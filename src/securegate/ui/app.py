@@ -7,10 +7,11 @@ no JavaScript, and the Content-Security-Policy header forbids scripts outright.
 from datetime import datetime
 from pathlib import Path
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from flask.typing import ResponseReturnValue
 
 from securegate import __version__
+from securegate.finding import DECISIONS
 from securegate.ui.report_view import ReportProblem, load_report
 
 SECURITY_HEADERS = {
@@ -45,6 +46,22 @@ def create_app(report_path: Path) -> Flask:
         if isinstance(report, ReportProblem):
             return _problem_page(report)
         return render_template("overview.html", report=report, active="overview")
+
+    @app.get("/findings")
+    def findings() -> ResponseReturnValue:
+        report = load_report(report_path)
+        if isinstance(report, ReportProblem):
+            return _problem_page(report)
+        requested = request.args.get("decision")
+        decision = requested if requested in DECISIONS else None
+        return render_template(
+            "findings.html",
+            report=report,
+            decision=decision,
+            unknown_filter=requested if requested is not None and decision is None else None,
+            rows=report.filtered(decision),
+            active="findings",
+        )
 
     @app.get("/favicon.ico")
     def favicon() -> ResponseReturnValue:

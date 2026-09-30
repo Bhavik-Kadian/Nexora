@@ -11,7 +11,8 @@ from helpers import Page
 from securegate.ui.app import create_app
 from securegate.ui.report_view import report_commands
 
-PAGES = ["/"]
+PAGES = ["/", "/findings", "/findings?decision=block"]
+DECISION_ORDER = {"block": 0, "warn": 1, "ignore": 2}
 
 
 @pytest.fixture
@@ -25,6 +26,19 @@ def report_data(path: Path) -> dict:
 
 def body(response) -> str:  # type: ignore[no-untyped-def]
     return response.get_data(as_text=True)
+
+
+def badges(page: Page) -> list[str]:
+    """The decisions shown by the badges on a page, in order."""
+    return [
+        (attrs.get("class") or "").split("badge--")[1]
+        for attrs in page.all("span")
+        if "badge--" in (attrs.get("class") or "")
+    ]
+
+
+def row_links(page: Page) -> list[str]:
+    return [attrs["href"] for attrs in page.all("a") if attrs.get("class") == "row-link"]
 
 
 # --- the overview --------------------------------------------------------------------------
@@ -65,6 +79,82 @@ def test_overview_says_when_and_where_the_scan_ran(client: FlaskClient) -> None:
     assert "The whole Git history" in page.text
     assert "Gitleaks 8.30.1" in page.text
     assert len(datetimes) == 1 and datetimes[0].endswith("Z")
+
+
+# --- the findings list ---------------------------------------------------------------------
+
+
+def test_findings_lists_every_finding_with_blocks_first(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    response = client.get("/findings")
+    shown = badges(Page(body(response)))
+
+    assert response.status_code == 200
+    assert len(shown) == len(report_data(sample_report)["findings"])
+    assert shown == sorted(shown, key=DECISION_ORDER.__getitem__)
+    assert shown[0] == "block"
+
+
+def test_findings_table_has_the_required_columns(client: FlaskClient) -> None:
+    page = Page(body(client.get("/findings")))
+    headers = page.text.split("Decision Rule File:line Masked value Reason")
+    assert len(headers) == 2
+    assert [th["scope"] for th in page.all("th")] == ["col"] * 5
+
+
+@pytest.mark.parametrize("decision", ["block", "warn", "ignore"])
+def test_filter_shows_only_that_decision(
+    client: FlaskClient, sample_report: Path, decision: str
+) -> None:
+    response = client.get(f"/findings?decision={decision}")
+    page = Page(body(response))
+    current = [a["href"] for a in page.all("a") if a.get("aria-current") == "page"]
+
+    assert response.status_code == 200
+    assert badges(page) == [decision] * report_data(sample_report)["summary"][decision]
+    assert current == ["/findings", f"/findings?decision={decision}"]  # tab, then filter
+
+
+def test_unknown_filter_shows_everything_with_a_note(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    response = client.get("/findings?decision=maybe")
+    page = Page(body(response))
+
+    assert response.status_code == 200
+    assert "There is no decision called “maybe”" in page.text
+    assert len(badges(page)) == len(report_data(sample_report)["findings"])
+
+
+def test_each_row_links_to_its_detail_page(client: FlaskClient, sample_report: Path) -> None:
+    ids = {f["id"] for f in report_data(sample_report)["findings"]}
+    links = row_links(Page(body(client.get("/findings"))))
+    assert {link.removeprefix("/findings/") for link in links} == ids
+
+
+def test_rows_show_rule_location_masked_value_and_reason(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    text = Page(body(client.get("/findings"))).text
+    missing = [
+        f["id"]
+        for f in report_data(sample_report)["findings"]
+        if not all(
+            part in text for part in (f["rule"], f"{f['file']}:{f['line']}", f["masked_value"])
+        )
+    ]
+    assert missing == []
+    assert "provider-keys A payment, cloud or private key" in text
+
+
+def test_an_empty_filter_says_so(tmp_path: Path, sample_report: Path) -> None:
+    data = report_data(sample_report)
+    data["findings"] = [f for f in data["findings"] if f["decision"] != "ignore"]
+    report = tmp_path / "findings.json"
+    report.write_text(json.dumps(data), encoding="utf-8")
+    text = Page(body(create_app(report).test_client().get("/findings?decision=ignore"))).text
+    assert "No findings with decision IGNORE." in text
 
 
 # --- no usable report: a friendly page ------------------------------------------------------
