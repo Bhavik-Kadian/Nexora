@@ -25,6 +25,20 @@ def render_table(findings: Sequence[Finding]) -> str:
     return "\n".join(_table_row(cells, widths) for cells in [COLUMNS, *rows])
 
 
+def blocked_details(findings: Sequence[Finding]) -> str:
+    """For each blocked finding: where it is, the masked value, why it was blocked, and the fix
+    (the policy's one-line remediation)."""
+    lines = ["Blocked:"]
+    for f in findings:
+        if f.decision == "block":
+            lines += [
+                f"  {f.file}:{f.line}  {f.masked_value}",
+                f"    why: {f.reason}",
+                f"    fix: {f.remediation or 'see the policy rule named above'}",
+            ]
+    return "\n".join(lines)
+
+
 def summary_line(findings: Sequence[Finding], exit_code: int, out_path: Path | None) -> str:
     counts = Counter(f.decision for f in findings)
     noun = "finding" if len(findings) == 1 else "findings"

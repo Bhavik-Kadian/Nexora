@@ -19,7 +19,13 @@ from securegate.errors import SecureGateError
 from securegate.mask import default_state_dir, load_hmac_key
 from securegate.pipeline import run_scan
 from securegate.policy import load_policy
-from securegate.report import envelope, render_table, summary_line, write_json
+from securegate.report import (
+    blocked_details,
+    envelope,
+    render_table,
+    summary_line,
+    write_json,
+)
 from securegate.scanners import gitleaks
 
 EXIT_PASS = 0
@@ -80,6 +86,11 @@ def build_parser() -> argparse.ArgumentParser:
     sample.add_argument("--policy", default="policy.yaml", help="default: %(default)s")
     sample.add_argument("--gitleaks-config", default=".gitleaks.toml", help="default: %(default)s")
 
+    summary = commands.add_parser(
+        "summary", help="print a short Markdown summary of a report (masked values only)"
+    )
+    summary.add_argument("--report", default="findings.json", help="default: %(default)s")
+
     commands.add_parser("version", help="print the SecureGate and Gitleaks versions")
     return parser
 
@@ -97,6 +108,8 @@ def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = 
             return _ui(args)
         if args.command == "sample-report":
             return _sample_report(args, runner)
+        if args.command == "summary":
+            return _summary(args)
         return _scan(args, runner)
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -155,6 +168,9 @@ def _scan(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
     if result.findings:
         print(render_table(result.findings))
         print()
+    if exit_code == EXIT_BLOCK:
+        print(blocked_details(result.findings))
+        print()
     print(summary_line(result.findings, exit_code, out))
     return exit_code
 
@@ -203,6 +219,15 @@ def _sample_report(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
     print(f"Wrote {args.out}: {result.findings} findings from a demo scan, values masked.")
     print(f"Open it with: securegate ui --report {args.out} --open")
     return EXIT_PASS
+
+
+def _summary(args: argparse.Namespace) -> int:
+    from securegate.summary import render_summary
+    from securegate.ui.report_view import ReportProblem, load_report
+
+    report = load_report(Path(args.report))
+    print(render_summary(report), end="")
+    return EXIT_ERROR if isinstance(report, ReportProblem) else EXIT_PASS
 
 
 def _version(runner: gitleaks.Runner) -> int:

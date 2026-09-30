@@ -33,7 +33,14 @@ It also makes a **fingerprint**: a code that recognizes the same key again later
 ```
 DECISION  RULE                 FILE:LINE                       VALUE
 block     stripe-access-token  scripts/migrate_customers.py:3  sk_l****562d
+
+Blocked:
+  scripts/migrate_customers.py:3  sk_l****562d
+    why: provider-keys: A payment, cloud or private key gives direct access to money, data or servers.
+    fix: Treat it as leaked. Rotate (replace) the key at the provider now, remove it from the code, and load it from an environment variable or a secrets manager instead.
 ```
+
+For every blocked finding it says why it was blocked and how to fix it. Both lines come from the matching rule in `policy.yaml`: its `reason` and its `remediation`.
 
 The full details go to `findings.json`. SecureGate then ends with **exit code 1**. An exit code is the number a program gives back when it finishes, so that other tools can react. 1 means "at least one finding is blocked".
 

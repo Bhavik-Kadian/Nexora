@@ -65,6 +65,35 @@ def test_table_shows_decision_rule_location_and_masked_value(run_cli, tmp_path: 
     assert not raw_visible
 
 
+def test_blocked_findings_say_why_and_how_to_fix(run_cli, tmp_path: Path) -> None:
+    aws = fake_aws_key_id()
+    expected_mask = mask_value(aws)
+    fake = FakeGitleaks(
+        report=[
+            entry(rule="aws-access-token", file="config/settings.py", line=9, value=aws),
+            entry(rule="generic-api-key", file="app/a.py", line=2, value=random_text(30)),
+        ]
+    )
+
+    result = run_cli(*scan_args(tmp_path), runner=fake)
+    lines = result.out.splitlines()
+    start = lines.index("Blocked:")
+
+    assert lines[start + 1].split() == ["config/settings.py:9", expected_mask]
+    assert lines[start + 2].startswith("    why: provider-keys: A payment, cloud or private key")
+    assert lines[start + 3].startswith("    fix: Treat it as leaked. Rotate (replace) the key")
+    assert "app/a.py:2" not in "\n".join(lines[start:])  # warnings are not listed as blocked
+
+
+def test_a_passing_scan_has_no_blocked_section(run_cli, tmp_path: Path) -> None:
+    fake = FakeGitleaks(
+        report=[entry(rule="generic-api-key", file="app/a.py", line=2, value=random_text(30))]
+    )
+    result = run_cli(*scan_args(tmp_path), runner=fake)
+    assert result.exit_code == 0
+    assert "Blocked:" not in result.out
+
+
 def test_findings_json_envelope(run_cli, tmp_path: Path) -> None:
     fake = FakeGitleaks(
         report=[

@@ -27,7 +27,8 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `confidence.py` | Scores from 0 to 1 how sure we are that a finding is a real secret. |
 | `mask.py` | Hides the value and makes its fingerprint. |
 | `finding.py` | The finding record. It can only hold a masked value. |
-| `report.py` | Prints the table and writes `findings.json`. |
+| `report.py` | Prints the table, the "why and fix" lines for blocked findings, and writes `findings.json`. |
+| `summary.py` | Turns `findings.json` into a short Markdown summary (`securegate summary`), used on GitHub's check page. |
 | `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. |
 | `ui/` | The read-only dashboard: `app.py` (the pages), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `server.py` (127.0.0.1 only), `templates/` and `static/css/`. |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
@@ -72,6 +73,7 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | block, warn or ignore a kind of finding | `policy.yaml`: add or move a rule |
 | treat a folder differently | `policy.yaml`: `path_matches` |
 | ignore a known fake value | `policy.yaml`: `value_matches` in the `placeholders` rule |
+| change the "why" or "fix" line shown for a blocked finding | `policy.yaml`: `reason` and `remediation` of that rule |
 | detect a new kind of key | `.gitleaks.toml`: add a `[[rules]]` entry, like `acme-pay-token` |
 | plant a new secret or decoy in the demo | `src/securegate/demo/catalog.yaml` (see [Testing](testing.md)) |
 | change how values are masked | `src/securegate/mask.py` |
