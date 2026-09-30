@@ -63,7 +63,7 @@ block     aws-access-token     config/settings.py:11                 AKIA****NOB
 block     private-key          deploy/server.key:1                   ----****----
 ...
 11 findings: 6 block, 4 warn, 1 ignore -> BLOCKED (exit code 1). Details: findings-demo.json
-make: *** [Makefile:43: scan-demo] Error 1
+make: *** [Makefile:47: scan-demo] Error 1
 ```
 
 The last two lines are expected. The demo is full of secrets, so SecureGate blocks it (exit code 1), and `make` reports that as "Error 1". Every value is masked: SecureGate never shows a whole secret.

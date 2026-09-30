@@ -39,7 +39,7 @@ On GitHub, select **Compare & pull request**, then **Create pull request**. Do n
 
 ## 4. See the red check
 
-After about a minute, the check **secret-gate** shows a red cross. Select **Details**. The summary shows `demo_leak.py:1`, the masked token (such as `acme****x9Qz`), why it was blocked and the fix. The full token is never shown.
+After about a minute, the check **secret-gate** shows a red cross. Select **Details**; if you see a list of steps instead of a table, select **Summary** at the top left. The summary shows `demo_leak.py:1`, the masked token (such as `acme****x9Qz`), why it was blocked and the fix. The full token is never shown.
 
 ## 5. Delete the line in a new commit
 

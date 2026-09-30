@@ -25,7 +25,7 @@ Blocked:
 
 On GitHub, every pull request runs a **status check** called `secret-gate`. A status check is a test that GitHub shows next to a pull request, as a green tick or a red cross. This one is a **workflow**, a list of steps that GitHub Actions runs on its own computers: `.github/workflows/secret-gate.yml`.
 
-It scans **every commit** in the pull request, not only the final result, because a secret that a later commit deletes is still in the history. The check turns red when a secret is blocked, and also when the scan could not run. Select **Details** next to the check to see a short summary with the file and line, the masked value, why it was blocked and the fix.
+It scans **every commit** in the pull request, not only the final result, because a secret that a later commit deletes is still in the history. The check turns red when a secret is blocked, and also when the scan could not run. Select **Details** next to the check, then **Summary** at the top left if you see a list of steps, to see a short summary with the file and line, the masked value, why it was blocked and the fix.
 
 ## Why only the merge gate is the real control
 

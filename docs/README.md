@@ -15,6 +15,7 @@ It checks each commit on your laptop and each pull request on GitHub, and a read
 | [Dashboard](ui.md) | see a report in your browser, or change the dashboard's colours |
 | [The two gates](merge-gate.md) | stop secrets before a commit (laptop) and before a merge (GitHub), and turn the GitHub check on |
 | [Demo: the merge gate](demo-merge-gate.md) | show the GitHub check stopping a fake key, step by step |
+| [Presenting to judges](presenting-to-judges.md) | show SecureGate live: where it starts, where the data comes from, what to type and what to say |
 | [How it's built](how-its-built.md) | find your way around the files, or change a behavior |
 | [Testing](testing.md) | plant a new secret in the demo repo and read the scorecard |
 | [Glossary](glossary.md) | look up a word |

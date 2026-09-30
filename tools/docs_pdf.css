@@ -89,6 +89,19 @@ pre code {
   background: none;
 }
 
+blockquote {
+  margin: 0 0 var(--spacing-m);
+  padding: var(--spacing-s) var(--spacing-m);
+  background: var(--color-brand-background-2);
+  border-left: var(--stroke-width-thick) solid var(--color-brand-foreground-1);
+  border-radius: var(--border-radius-medium);
+  break-inside: avoid;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
 table {
   width: 100%;
   margin: 0 0 var(--spacing-m);
