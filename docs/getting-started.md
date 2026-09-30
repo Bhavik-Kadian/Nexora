@@ -92,9 +92,17 @@ make ui
 
 This opens the dashboard on the demo scan at `http://127.0.0.1:5000`, a page only your own computer can open. Select a finding to see how to fix it. Press Ctrl+C in PowerShell to stop the dashboard. For your own scan, use `.venv\Scripts\securegate ui --report findings.json --open`. More in [Dashboard](ui.md).
 
+## 7. Check every commit before it is made (once)
+
+```powershell
+make hooks
+```
+
+This turns on the **laptop gate**: from now on, every `git commit` in this folder first scans the changes you are about to commit. If it finds a secret to block, the commit stops and shows the file and line, the masked value, why it was blocked and how to fix it. The first run of `make hooks` needs the internet; after that it works offline. More in [The two gates](merge-gate.md).
+
 ## On macOS or Linux
 
-Install the same tools, then follow steps 2 to 6 in a terminal.
+Install the same tools, then follow steps 2 to 7 in a terminal.
 
 ```bash
 # macOS, with Homebrew (https://brew.sh):

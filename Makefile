@@ -8,6 +8,7 @@
 #                   to block, so make reports "Error 1"
 #   make ui         open the dashboard on the demo scan (http://127.0.0.1:5000, Ctrl+C stops)
 #   make sample-report  write sample_findings.json (about 20 findings) for the designers
+#   make hooks      install the laptop gate: scan staged changes before every commit
 #
 # Works from PowerShell, cmd and Git Bash on Windows, and from macOS/Linux shells.
 # Use another interpreter with:  make setup PYTHON=python3
@@ -22,7 +23,7 @@ endif
 
 DEMO_DIR := ../securegate-demo
 
-.PHONY: setup test lint check demo scan-demo ui sample-report
+.PHONY: setup test lint check demo scan-demo ui sample-report hooks
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -49,3 +50,6 @@ ui:
 
 sample-report:
 	"$(VENV_PY)" -m securegate sample-report --out sample_findings.json
+
+hooks:
+	"$(VENV_PY)" -m pre_commit install --install-hooks

@@ -1,0 +1,19 @@
+# SecureGate's laptop gate: before every commit, scan only the staged changes for secrets.
+#
+# Install it once with:  make hooks
+# A blocked commit shows the file and line, the masked value, why it was blocked and the fix.
+# `git commit --no-verify` skips this check on purpose. The merge gate on GitHub still scans
+# every commit of the pull request, so a skipped secret is caught there. See docs/merge-gate.md.
+repos:
+  - repo: local
+    hooks:
+      - id: securegate
+        name: SecureGate secret scan (staged changes)
+        # pre-commit keeps its own Python environment for this hook. The launcher runs
+        # SecureGate from this checkout, so the hook works without activating .venv.
+        language: python
+        entry: python tools/precommit_hook.py
+        additional_dependencies: ["PyYAML>=6.0", "Jinja2>=3.1"]
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
