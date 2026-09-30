@@ -10,6 +10,7 @@ policy.yaml                         the rules that decide block / warn / ignore
 .pre-commit-config.yaml             the laptop gate (installed with make hooks)
 .github/workflows/secret-gate.yml   the merge gate: the check on every pull request
 Makefile                            short commands: make setup, make test, make demo, ...
+Start SecureGate.cmd                double-click: build the demo, scan it, open the dashboard
 src/securegate/                     the program
 tools/                              helpers for the gates and the docs
 tests/                              automatic checks that prove the program works
@@ -87,6 +88,7 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change the "How to fix" advice | `src/securegate/ui/fixes.py` |
 | change what the check on pull requests does | `.github/workflows/secret-gate.yml` (see [The two gates](merge-gate.md)) |
 | change the check before each commit | `.pre-commit-config.yaml` and `tools/precommit_hook.py` |
+| change what double-clicking `Start SecureGate.cmd` does | `Start SecureGate.cmd` (a Windows batch file; `tests/test_launcher.py` checks the commands it runs) |
 | update the PDF copies of these pages | edit the `.md` page, then run `make docs-pdf` (`tools/docs_pdf.py`) |
 
 When you change a behavior, update the matching page in `docs/` in the same commit, and run `make docs-pdf` so its PDF matches. A test fails when a PDF is out of date.

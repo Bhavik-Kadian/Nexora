@@ -19,11 +19,13 @@ Type each command into **PowerShell**, in the project folder (see "Where do I ty
 
 Short on time? Run `make demo` before you start, then show steps 1, 3, 5 and 6 (about 6 minutes).
 
-## Where does it start? There is no "run file"
+## Where does it start?
 
-SecureGate has no window and no file to double-click. It is a **command-line program**: you type a command, it does its job, prints the result and stops. Only the dashboard keeps running, and you look at it in your web browser.
+**The one-click way:** double-click `Start SecureGate.cmd` in the project folder. It builds the demo project (the first time only), scans it, shows the table and opens the dashboard in your browser: what `make demo`, `make scan-demo` and `make ui` do. Its window must stay open while you use the dashboard; close the window to stop it. If SecureGate is not set up yet, it offers to do that first.
 
-- **The program** is `securegate`. `make setup` installed it inside the project folder, as `.venv\Scripts\securegate.exe`. That is the closest thing to a "run file", but you start it by typing a command, not by double-clicking it.
+Under the hood, SecureGate is a **command-line program**: you type a command, it does its job, prints the result and stops. Only the dashboard keeps running, and you look at it in your web browser. `Start SecureGate.cmd` just types the commands for you.
+
+- **The program** is `securegate`. `make setup` installed it inside the project folder, as `.venv\Scripts\securegate.exe`. You start it by typing a command, or let `Start SecureGate.cmd` type them.
 - **The shortcuts.** Each `make` command is a short name for a longer command. They are all written in the file `Makefile` in the project folder. `make` prints the real command before running it, so the judges can see it.
 - **The code.** Every command starts in the same place: the function `main()` in `src/securegate/cli.py`. The line `securegate = "securegate.cli:main"` in `pyproject.toml` connects the command's name to that function. From there, a scan runs Gitleaks (`scanners/gitleaks.py`), masks each value (`pipeline.py` and `mask.py`), lets the policy decide (`policy.py`), then prints and saves the report (`report.py`). [How it's built](how-its-built.md) has the full map.
 
@@ -59,7 +61,7 @@ It prints `True`. If it prints `False`, you are in another folder.
 
 Make the text big enough for the judges: hold Ctrl and turn the mouse wheel.
 
-The dashboard is the only part you see in a web browser, at `http://127.0.0.1:5000`. That address only works on this laptop, and only while `make ui` is running.
+The dashboard is the only part you see in a web browser, at `http://127.0.0.1:5000`. That address only works on this laptop, and only while `make ui` or the window of `Start SecureGate.cmd` is running.
 
 ## Where does the data come from?
 
@@ -105,7 +107,7 @@ It prints `securegate 0.1.0` and `gitleaks 8.30.1`. If it says `gitleaks not fou
 make check
 ```
 
-It takes under a minute and ends with a line like `389 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
+It takes under a minute and ends with a line like `408 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
 
 3. Turn on the laptop gate, for step 6:
 
@@ -291,7 +293,7 @@ Show, in this order:
 
 > The dashboard is read-only and runs only on this laptop: 127.0.0.1 means "this computer", so nobody else on the network can open it. It needs no internet, and its pages contain no JavaScript. It checks every value again before showing it: a report that holds an unmasked value is refused, never shown.
 
-To stop the dashboard, click in PowerShell and press **Ctrl+C**. Tip: to keep it open for the rest of the demo, run `make ui` in a second PowerShell window instead.
+To stop the dashboard, click in PowerShell and press **Ctrl+C**. Tip: to keep it open for the rest of the demo, run `make ui` in a second PowerShell window instead, or double-click `Start SecureGate.cmd`: it scans again and keeps the dashboard in its own window.
 
 ### Step 6. The laptop gate stops a commit (1 to 2 minutes)
 
@@ -362,7 +364,7 @@ No internet? Show your screenshots, or `docs/pdf/merge-gate.pdf`, and make the s
 make test
 ```
 
-After about 35 seconds, the judges see the scorecard, and then the last line: `389 passed, 1 skipped`.
+After about 35 seconds, the judges see the scorecard, and then the last line: `408 passed, 1 skipped`.
 
 ```
 repo mode, seed 42
@@ -380,7 +382,7 @@ planted lines: 20 (9 secret, 11 decoy)
 
 A second scorecard follows for `dir` mode. It only reads today's files, so it also misses the deleted Stripe key.
 
-> Almost 400 automatic tests check SecureGate on every change. Some run the real Gitleaks; others fail if a whole fake secret ever appears in any output, report or dashboard page. The scorecard compares a fresh scan of the demo with its answer sheet, and we show the real numbers: 15 of the 20 planted lines are handled exactly as expected. Two passwords are missed, one inside a database address and one in a Dockerfile, because Gitleaks' built-in rules don't look for them. That is our next improvement.
+> Over 400 automatic tests check SecureGate on every change. Some run the real Gitleaks; others fail if a whole fake secret ever appears in any output, report or dashboard page. The scorecard compares a fresh scan of the demo with its answer sheet, and we show the real numbers: 15 of the 20 planted lines are handled exactly as expected. Two passwords are missed, one inside a database address and one in a Dockerfile, because Gitleaks' built-in rules don't look for them. That is our next improvement.
 
 | Word | Meaning |
 |---|---|
@@ -395,7 +397,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 ## After the demo
 
-- Stop the dashboard if it is still running: press Ctrl+C in its PowerShell window.
+- Stop the dashboard if it is still running: press Ctrl+C in its PowerShell window, or close the window of `Start SecureGate.cmd`.
 - Check that `demo_leak.py` is gone: `git status --short` does not list it.
 - On GitHub, finish the demo pull request: step 7 of [Demo: the merge gate](demo-merge-gate.md) closes it without merging and deletes the branch.
 - You can run `make demo` again at any time. It rebuilds exactly the same demo project.
@@ -424,7 +426,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **Does it need the internet?** No. Scans, the dashboard and the laptop gate work offline. Only the merge gate needs GitHub.
 
-**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 390 automatic tests.
+**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 409 automatic tests.
 
 ## If something goes wrong
 
@@ -440,6 +442,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | PowerShell seems stuck after `make ui` | It is not stuck: it is running the dashboard. Ctrl+C stops it. |
 | The commit in step 6 went through | The laptop gate was not on. Undo the commit with `git reset --soft HEAD~1`, then run the clean-up commands of step 6. |
 | No internet where you present | Steps 1 to 6 and step 8 work offline. For step 7, show your screenshots. |
+| The window of `Start SecureGate.cmd` says `SecureGate stopped` | The lines above it say what went wrong, often one of the problems in this table. Press a key to close the window, fix the problem, then double-click the file again. |
 | A scan fails on the day and you can't fix it | Show the spare report: `.venv\Scripts\securegate ui --report sample_findings.json --open`. |
 
 ## Where everything is
@@ -447,6 +450,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | Where | What it is |
 |---|---|
 | `Makefile` | the shortcut commands (`make ...`) |
+| `Start SecureGate.cmd` | double-click it to build the demo (the first time only), scan it and open the dashboard |
 | `.venv\` | SecureGate and its tools, installed by `make setup`. The program is `.venv\Scripts\securegate.exe`. |
 | `src/securegate/` | the program's code. Every command starts in `cli.py`. |
 | `policy.yaml` | the rules: block, warn or ignore |

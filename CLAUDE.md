@@ -28,6 +28,8 @@ compare masked values, counts or booleans instead.
   src/securegate/ui/static/css/tokens.css). `make sample-report`: sample_findings.json
 - `make hooks`: laptop gate (pre-commit). Merge gate: .github/workflows/secret-gate.yml
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
+- `Start SecureGate.cmd`: double-click launcher (setup if asked, demo if missing, scan-demo, ui). ASCII,
+  CRLF; tests/test_launcher.py checks every securegate command in it still parses
 
 ## Environment
 - Gitleaks 8.30.1 (winget). Use only flags listed by `gitleaks git --help` / `gitleaks dir --help`.

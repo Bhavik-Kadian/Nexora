@@ -1,5 +1,9 @@
 # Keep LF line endings in the repository and in working copies on every OS.
 * text=auto eol=lf
 
+# Except Windows batch files: cmd.exe can misread one with LF line endings.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
 # PDFs are binary: never convert line endings inside them.
 *.pdf binary

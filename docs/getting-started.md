@@ -39,6 +39,8 @@ cd SecureGate
 
 Replace `<repository-address>` with the address your team gave you. `cd` means "change directory": it moves you into a folder.
 
+**The quick way on Windows:** open the SecureGate folder in File Explorer and double-click `Start SecureGate.cmd`. It does steps 3, 4 and 6 for you. The first time, it asks to set SecureGate up and builds the demo project; every time, it scans the demo project and opens the dashboard in your browser. Keep its window open while you use the dashboard, and close the window to stop it. The steps below do the same with commands, which you need to scan your own projects.
+
 ## 3. Set it up (once)
 
 ```powershell
