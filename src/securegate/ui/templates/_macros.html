@@ -1,0 +1,4 @@
+{#- A decision is never shown by colour alone: the badge always says BLOCK, WARN or IGNORE. -#}
+{% macro badge(decision) -%}
+<span class="badge badge--{{ decision }}">{{ decision | upper }}</span>
+{%- endmacro %}

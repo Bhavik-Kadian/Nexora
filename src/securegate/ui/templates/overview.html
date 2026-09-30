@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <h1>Overview</h1>
+  <p class="lede">Scan result: <strong>{{ report.result }}</strong>{% if report.exit_code is not none %} (exit code {{ report.exit_code }}){% endif %}</p>
+</div>
+
+<section aria-labelledby="totals-heading">
+  <h2 id="totals-heading" class="visually-hidden">Totals</h2>
+  <ul class="cards">
+    <li class="card">
+      <a class="card__link" href="/findings">
+        <span class="card__label">Total findings</span>
+        <span class="card__value">{{ report.count() }}</span>
+      </a>
+    </li>
+    {% for decision, label in [("block", "Blocked"), ("warn", "Warnings"), ("ignore", "Ignored")] %}
+    <li class="card">
+      <a class="card__link" href="/findings?decision={{ decision }}">
+        <span class="card__label">{{ badge(decision) }} {{ label }}</span>
+        <span class="card__value">{{ report.count(decision) }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<div class="panels">
+  <section class="panel" aria-labelledby="severity-heading">
+    <h2 id="severity-heading">Findings by severity</h2>
+    <ul class="bars">
+      {% for severity, count in report.severity_counts() %}
+      <li class="bars__row">
+        <label class="bars__label" for="severity-{{ severity }}">{{ severity | capitalize }}</label>
+        <meter class="bars__meter" id="severity-{{ severity }}" min="0" max="{{ [report.count(), 1] | max }}" value="{{ count }}">{{ count }}</meter>
+        <span class="bars__count" aria-hidden="true">{{ count }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <section class="panel" aria-labelledby="scan-heading">
+    <h2 id="scan-heading">About this scan</h2>
+    <dl class="facts">
+      <dt>When</dt>
+      <dd>{% if report.scanned_at %}<time datetime="{{ report.scanned_at | iso_time }}">{{ report.scanned_at | local_time }}</time> <span class="secondary">(your time)</span>{% else %}Unknown{% endif %}</dd>
+      <dt>Where</dt>
+      <dd><code>{{ report.target }}</code></dd>
+      <dt>What</dt>
+      <dd>{{ report.mode_description }}{% if report.log_range %} <code>{{ report.log_range }}</code>{% endif %}</dd>
+      <dt>Scanner</dt>
+      <dd>Gitleaks {{ report.scanner_version or "(version unknown)" }}</dd>
+      <dt>Policy</dt>
+      <dd><code>{{ report.policy }}</code></dd>
+      <dt>SecureGate</dt>
+      <dd>{{ report.securegate_version }}</dd>
+    </dl>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,105 @@
+/*
+  SecureGate dashboard: design tokens.
+
+  Every colour, font size, spacing value and radius the dashboard uses is defined here;
+  app.css only refers to these variables (a test checks that). To apply the designers' Figma
+  tokens, change the values below. The names follow Fluent 2: Figma's
+  colorNeutralBackground1 is --color-neutral-background-1 here.
+
+  Text colours meet WCAG AA (at least 4.5:1) on the backgrounds they are used on, and a test
+  checks every pair. Decisions are never shown by colour alone: there is always a text badge.
+*/
+
+:root {
+  /* Neutral colours */
+  --color-neutral-background-1: #FFFFFF;        /* cards, tables, header */
+  --color-neutral-background-1-hover: #F5F5F5;  /* table row or tab under the pointer */
+  --color-neutral-background-2: #FAFAFA;        /* page */
+  --color-neutral-background-3: #F5F5F5;        /* table headings, commands, bar track */
+  --color-neutral-foreground-1: #242424;        /* text */
+  --color-neutral-foreground-2: #616161;        /* secondary text */
+  --color-neutral-stroke-1: #E0E0E0;            /* 1px borders */
+  --color-neutral-stroke-1-hover: #C7C7C7;      /* card border under the pointer */
+
+  /* Brand: the one accent colour */
+  --color-brand-foreground-1: #0F6CBD;          /* links, active tab, bars */
+  --color-brand-foreground-1-hover: #115EA3;
+  --color-brand-background-2: #EBF3FC;          /* active filter */
+
+  /* Keyboard focus */
+  --color-stroke-focus: #000000;
+
+  /* Decisions (always paired with a BLOCK / WARN / IGNORE text badge) */
+  --color-block-foreground: #B10E1C;
+  --color-block-background: #FDF3F4;
+  --color-block-border: #EEACB2;
+  --color-warn-foreground: #835B00;
+  --color-warn-background: #FFF4CE;
+  --color-warn-border: #F2D276;
+  --color-ignore-foreground: #616161;
+  --color-ignore-background: #F5F5F5;
+  --color-ignore-border: #D1D1D1;
+
+  /* Typography */
+  --font-family-base: "Segoe UI", system-ui, sans-serif;
+  --font-family-monospace: Consolas, "Cascadia Mono", ui-monospace, monospace;
+  --font-size-base-200: 12px;
+  --font-size-base-300: 14px;                   /* body text */
+  --font-size-base-400: 16px;
+  --font-size-base-500: 20px;
+  --font-size-hero-700: 28px;
+  --font-size-hero-800: 32px;
+  --line-height-base-200: 16px;
+  --line-height-base-300: 20px;
+  --line-height-base-400: 22px;
+  --line-height-base-500: 28px;
+  --line-height-hero-700: 36px;
+  --line-height-hero-800: 40px;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+
+  /* Spacing */
+  --spacing-xxs: 2px;
+  --spacing-xs: 4px;
+  --spacing-s: 8px;
+  --spacing-m: 12px;
+  --spacing-l: 16px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 24px;
+  --spacing-xxxl: 32px;
+
+  /* Corners and lines */
+  --border-radius-small: 2px;
+  --border-radius-medium: 4px;
+  --border-radius-large: 8px;                   /* cards and panels */
+  --border-radius-circular: 10000px;
+  --stroke-width-thin: 1px;
+  --stroke-width-thick: 2px;
+
+  /* Sizes */
+  --size-page-max: 1200px;
+  --size-header: 56px;
+  --size-bar: 12px;
+  --size-bar-label: 88px;
+  --size-bar-count: 40px;
+}
+
+/* Large screens and projectors (1920 x 1080): larger text and a wider page. */
+@media (min-width: 1600px) {
+  :root {
+    --font-size-base-200: 14px;
+    --font-size-base-300: 16px;
+    --font-size-base-400: 18px;
+    --font-size-base-500: 22px;
+    --font-size-hero-700: 32px;
+    --font-size-hero-800: 40px;
+    --line-height-base-200: 20px;
+    --line-height-base-300: 22px;
+    --line-height-base-400: 24px;
+    --line-height-base-500: 30px;
+    --line-height-hero-700: 40px;
+    --line-height-hero-800: 48px;
+    --size-page-max: 1440px;
+    --size-bar-label: 104px;
+  }
+}

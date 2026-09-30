@@ -5,8 +5,11 @@ import secrets
 import shutil
 import string
 import subprocess
+from collections.abc import Sequence
+from html.parser import HTMLParser
 from pathlib import Path
 
+from securegate.demo.generator import PlantedLine
 from securegate.scanners.gitleaks import GitleaksNotFound, find_gitleaks
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +40,18 @@ def fake_aws_key_id() -> str:
     return "AKIA" + "".join(secrets.choice(_BASE32) for _ in range(16))
 
 
+def leaked(planted: Sequence[PlantedLine], text: str) -> list[str]:
+    """Where a planted value, or the hidden middle of a long one, shows up in `text`.
+    Names only the kind and location, never the value."""
+    found = []
+    for item in planted:
+        for part in item.parts:
+            if part in text or (len(part) >= 16 and part[4:-4] in text):
+                found.append(f"{item.kind} at {item.file}:{item.line}")
+                break
+    return found
+
+
 def scan_args(target: Path, mode: str = "repo") -> list[str]:
     """Arguments for `securegate scan`, pointing at this repo's policy and Gitleaks config."""
     return [
@@ -51,6 +66,29 @@ def scan_args(target: Path, mode: str = "repo") -> list[str]:
         "--gitleaks-config",
         str(GITLEAKS_CONFIG),
     ]
+
+
+class Page(HTMLParser):
+    """The tags (with attributes) and visible text of an HTML page, for structure checks."""
+
+    def __init__(self, html: str) -> None:
+        super().__init__(convert_charrefs=True)
+        self.tags: list[tuple[str, dict[str, str | None]]] = []
+        self._text: list[str] = []
+        self.feed(html)
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        self.tags.append((tag, dict(attrs)))
+
+    def handle_data(self, data: str) -> None:
+        self._text.append(data)
+
+    @property
+    def text(self) -> str:
+        return " ".join(" ".join(self._text).split())
+
+    def all(self, tag: str) -> list[dict[str, str | None]]:
+        return [attrs for name, attrs in self.tags if name == tag]
 
 
 def gitleaks_installed() -> bool:

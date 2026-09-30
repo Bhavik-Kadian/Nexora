@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}{{ problem.title }}{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <h1>{{ problem.title }}</h1>
+  <p class="lede">{{ problem.detail }}</p>
+</div>
+
+<section class="panel" aria-labelledby="create-heading">
+  <h2 id="create-heading">Create a report</h2>
+  <p>Run {% if problem.commands | length > 1 %}these commands{% else %}this command{% endif %} in the SecureGate folder:</p>
+  <pre class="command"><code>{{ problem.commands | join("\n") }}</code></pre>
+  <p>Then reload this page.</p>
+</section>
+{% endblock %}

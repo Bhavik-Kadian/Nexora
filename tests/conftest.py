@@ -9,10 +9,14 @@ from typing import Any
 
 import pytest
 
-from helpers import GitRepo, git_installed
+from fake_gitleaks import FakeGitleaks, report_for_demo
+from helpers import GITLEAKS_CONFIG, POLICY_FILE, GitRepo, git_installed, random_key
 from securegate.cli import main
 from securegate.demo.generator import DemoResult, generate
 from securegate.mask import KEY_ENV_VAR
+from securegate.pipeline import run_scan
+from securegate.policy import load_policy
+from securegate.report import envelope, write_json
 from securegate.scanners.gitleaks import Runner
 
 SCORECARDS = pytest.StashKey[list[str]]()
@@ -46,6 +50,35 @@ def demo_repo(tmp_path_factory: pytest.TempPathFactory) -> DemoResult:
     if not git_installed():
         pytest.skip("git is not installed")
     return generate(tmp_path_factory.mktemp("demo") / "securegate-demo", seed=42)
+
+
+@pytest.fixture(scope="session")
+def sample_report(demo_repo: DemoResult, tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A findings.json for the demo repo, written by the real pipeline. A fake Gitleaks
+    "finds" every planted value, so the report covers every kind and all three decisions."""
+    result = run_scan(
+        demo_repo.out,
+        "repo",
+        policy=load_policy(POLICY_FILE),
+        key=random_key(),
+        gitleaks_config=GITLEAKS_CONFIG,
+        runner=FakeGitleaks(report=report_for_demo(demo_repo)),
+    )
+    exit_code = 1 if any(f.decision == "block" for f in result.findings) else 0
+    path = tmp_path_factory.mktemp("report") / "findings.json"
+    write_json(
+        path,
+        envelope(
+            exit_code=exit_code,
+            target="../securegate-demo",
+            mode="repo",
+            log_range=None,
+            policy_path="policy.yaml",
+            scanner_version=result.scanner_version,
+            findings=result.findings,
+        ),
+    )
+    return path
 
 
 @dataclass

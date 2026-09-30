@@ -9,7 +9,17 @@ from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from securegate.demo.generator import DemoResult
 from securegate.scanners.gitleaks import GitleaksNotFound, RunResult
+
+# The Gitleaks rule a real scan reports for each planted kind; the rest count as generic.
+RULE_FOR_KIND = {
+    "aws_key_pair": "aws-access-token",
+    "stripe_live": "stripe-access-token",
+    "github_pat": "github-pat",
+    "acme_token": "acme-pay-token",
+    "private_key_block": "private-key",
+}
 
 GLOBAL_FLAGS = [
     "--baseline-path",
@@ -65,6 +75,22 @@ def entry(
         "Tags": [],
         "Fingerprint": f"{commit}:{file}:{rule}:{line}",
     }
+
+
+def report_for_demo(demo: DemoResult) -> list[dict[str, object]]:
+    """A report that "finds" every value planted in a demo repo, so all of them flow through
+    the pipeline (a real scan finds only some)."""
+    return [
+        entry(
+            rule=RULE_FOR_KIND.get(p.kind, "generic-api-key"),
+            file=p.file,
+            line=p.line,
+            value=p.raw,
+            commit=p.commit,
+            author="Riya Demo",
+        )
+        for p in demo.planted
+    ]
 
 
 @dataclass
