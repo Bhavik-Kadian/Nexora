@@ -186,7 +186,7 @@ def test_a_failed_scan_never_opens_the_dashboard(
     [
         ("version", ["version"], "Delete that folder"),
         ("demo_repo", ["version", "demo-repo"], "SecureGate stopped"),
-        ("ui", ["version", "demo-repo", "scan", "ui"], "--port 5050"),
+        ("ui", ["version", "demo-repo", "scan", "ui"], "open in another window"),
     ],
 )
 def test_a_failed_step_stops_there_and_says_what_to_do(

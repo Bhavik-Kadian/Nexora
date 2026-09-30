@@ -66,7 +66,7 @@ echo [3/3] Opening the dashboard in your browser...
 echo       Keep this window open while you use the dashboard. Close it to stop SecureGate.
 echo.
 title SecureGate dashboard - close this window to stop it
-set "HINT=To use another port, open PowerShell in this folder and run: .venv\Scripts\securegate ui --report %REPORT% --port 5050 --open"
+set "HINT=If SecureGate is open in another window, use that one: reload its page to see this scan. Or open PowerShell in this folder and run: .venv\Scripts\securegate ui --report %REPORT% --port 5050 --open"
 "%PYTHON%" -m securegate ui --report "%REPORT%" --open || goto :failed
 popd
 exit /b 0

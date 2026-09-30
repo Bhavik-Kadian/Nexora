@@ -25,7 +25,7 @@ from securegate.scanners.gitleaks import subprocess_runner
 from securegate.ui.app import create_app
 from securegate.ui.report_view import MASKED_VALUE, ReportView, load_report
 from securegate.ui.sample import write_sample_report
-from securegate.ui.server import HOST, serve
+from securegate.ui.server import HOST, make_unshared_server, serve
 
 
 class FakeServer:
@@ -81,12 +81,17 @@ def test_bad_ports_are_refused(sample_report: Path, port: int) -> None:
         serve(sample_report, port=port)
 
 
-def test_a_busy_port_is_a_clear_error(sample_report: Path) -> None:
-    def busy(*_args: Any, **_kwargs: Any) -> None:
-        raise OSError(10048, "Only one usage of each socket address is normally permitted")
-
-    with pytest.raises(ConfigError, match="Choose another port with --port"):
-        serve(sample_report, port=5000, server_factory=busy, say=lambda _: None)
+def test_a_busy_port_ends_with_exit_code_2_and_says_what_to_do(
+    sample_report: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with socket.create_server((HOST, 0)) as busy:  # another program, listening on some port
+        port = busy.getsockname()[1]
+        code = main(["ui", "--report", str(sample_report), "--port", str(port)])
+    err = capsys.readouterr().err
+    assert code == 2
+    assert f"cannot start the dashboard on port {port}" in err
+    assert "another window" in err
+    assert "choose another port with --port" in err
 
 
 def test_ui_command_defaults() -> None:
@@ -105,11 +110,27 @@ def free_port() -> int:
         return probe.getsockname()[1]
 
 
-def test_real_server_answers_every_page(sample_report: Path) -> None:
+# Werkzeug's own make_server binds the way other Flask apps do: with SO_REUSEADDR.
+@pytest.mark.parametrize(
+    "running", [make_unshared_server, make_server], ids=["a dashboard", "another web server"]
+)
+def test_a_second_dashboard_never_shares_a_busy_port(sample_report: Path, running: Any) -> None:
+    port = free_port()
+    first = running(HOST, port, create_app(sample_report))
+    try:
+        with pytest.raises(OSError):
+            make_unshared_server(HOST, port, create_app(sample_report)).server_close()
+    finally:
+        first.server_close()
+
+
+def test_real_server_answers_every_page_and_frees_its_port_when_stopped(
+    sample_report: Path,
+) -> None:
     servers: list[Any] = []
 
     def keep(*args: Any, **kwargs: Any) -> Any:
-        servers.append(make_server(*args, **kwargs))
+        servers.append(make_unshared_server(*args, **kwargs))
         return servers[0]
 
     port = free_port()
@@ -130,6 +151,8 @@ def test_real_server_answers_every_page(sample_report: Path) -> None:
         if servers:
             servers[0].shutdown()
         thread.join(timeout=10)
+    # The pages leave closed connections waiting on the port (TIME_WAIT): a restart must not wait.
+    make_unshared_server(HOST, port, create_app(sample_report)).server_close()
 
 
 @pytest.mark.skipif(

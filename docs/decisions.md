@@ -163,3 +163,13 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Links between pages** appear in the PDFs as text, such as "Testing (testing.pdf)": the browser would otherwise write this computer's file paths into them.
 - **The one diagram** is drawn by Mermaid 12.0.0, loaded from jsDelivr and checked against a pinned hash, so only that step needs the internet.
 - **Rejected:** replacing the Markdown with PDFs; reportlab, which would mean laying out every page by hand.
+
+## 39. The dashboard never shares its port
+- **Chose:** SecureGate opens the dashboard's port itself, the way Python's `socket.create_server` does, and hands it to Flask's web server. A busy port stops the dashboard with exit code 2 and says what to do.
+- **Why:** Flask's web server (Werkzeug) opens ports with a setting, `SO_REUSEADDR`, that on Windows lets a second server join a port another one is already using. Two dashboards then shared port 5000 without an error, and which one answered was left to chance. Where the port was really refused, Werkzeug ended the program with exit code 1, SecureGate's code for "blocked".
+- **Rejected:** picking a free port automatically: the address would change from run to run, while the docs and `Start SecureGate.cmd` promise `127.0.0.1:5000`.
+
+## 40. A double-click launcher for Windows
+- **Chose:** `Start SecureGate.cmd` builds the demo only when it is missing, scans it every time, and opens the dashboard only after a scan that ended with exit code 0 or 1. It runs `.venv`'s Python directly, and asks before setting anything up.
+- **Why:** a rebuild would undo changes made to the demo for a presentation; a fresh scan follows the current `policy.yaml`; after a failed scan, the dashboard would show an old report. And `make` should not be needed just to see SecureGate work.
+- **Rejected:** a PowerShell script: double-clicking one opens it in Notepad.

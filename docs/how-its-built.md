@@ -34,7 +34,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `report.py` | Prints the table, the "why and fix" lines for blocked findings, and writes `findings.json`. |
 | `summary.py` | Turns `findings.json` into a short Markdown summary (`securegate summary`), used on GitHub's check page. |
 | `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. |
-| `ui/` | The read-only dashboard: `app.py` (the pages), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `server.py` (127.0.0.1 only), `templates/` and `static/css/`. |
+| `ui/` | The read-only dashboard: `app.py` (the pages), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/`. |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
 
 ## The Finding format

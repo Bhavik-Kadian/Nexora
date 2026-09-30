@@ -23,7 +23,7 @@ To show another report, run this in the SecureGate folder:
 ```
 
 - `--report`: the report to show. The default is `findings.json`.
-- `--port`: the port number. The default is 5000; choose another one if 5000 is busy, for example `--port 5050`.
+- `--port`: the port number. The default is 5000. A dashboard never shares its port: if 5000 is busy, for example because a dashboard is already open in another window, it stops and says so. Use the open one, or choose another port, for example `--port 5050`.
 - `--open`: open the dashboard in your browser.
 - `--debug`: print error details in the terminal. It is off by default.
 

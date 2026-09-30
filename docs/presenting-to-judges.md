@@ -107,7 +107,7 @@ It prints `securegate 0.1.0` and `gitleaks 8.30.1`. If it says `gitleaks not fou
 make check
 ```
 
-It takes under a minute and ends with a line like `408 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
+It takes under a minute and ends with a line like `410 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
 
 3. Turn on the laptop gate, for step 6:
 
@@ -364,7 +364,7 @@ No internet? Show your screenshots, or `docs/pdf/merge-gate.pdf`, and make the s
 make test
 ```
 
-After about 35 seconds, the judges see the scorecard, and then the last line: `408 passed, 1 skipped`.
+After about 35 seconds, the judges see the scorecard, and then the last line: `410 passed, 1 skipped`.
 
 ```
 repo mode, seed 42
@@ -426,7 +426,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **Does it need the internet?** No. Scans, the dashboard and the laptop gate work offline. Only the merge gate needs GitHub.
 
-**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 409 automatic tests.
+**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 411 automatic tests.
 
 ## If something goes wrong
 
@@ -436,7 +436,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | `make scan-demo` ends with `Error 1` | Nothing: that is expected. It means secrets were found and blocked. |
 | `Error 2`, or a line starting with `securegate: error:` | SecureGate could not do its job, and the line says why. Often Gitleaks is not found: run `.venv\Scripts\securegate version`. If it says `gitleaks not found`, close PowerShell and open it again, or install Gitleaks again (step 1 of [Getting started](getting-started.md)). |
 | `.venv\Scripts\securegate` is not recognized | You are in the wrong folder (check with `Test-Path Makefile`), or SecureGate is not installed yet: run `make setup` (needs the internet). |
-| `cannot start the dashboard on port 5000` | Another program is using that port. Run `.venv\Scripts\securegate ui --report findings-demo.json --port 5050 --open`. |
+| `cannot start the dashboard on port 5000` | A dashboard is already open, maybe in another window, or another program is using that port. Use the open dashboard and reload its page, or run `.venv\Scripts\securegate ui --report findings-demo.json --port 5050 --open`. |
 | The browser did not open | Type `http://127.0.0.1:5000` into the browser's address bar yourself. |
 | The dashboard says there is no report | Run `make scan-demo` in a second PowerShell window, then reload the page. |
 | PowerShell seems stuck after `make ui` | It is not stuck: it is running the dashboard. Ctrl+C stops it. |
