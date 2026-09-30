@@ -5,12 +5,15 @@ A map of SecureGate's files. You don't need to read code to change its behavior:
 ## Folders
 
 ```
-policy.yaml          the rules that decide block / warn / ignore
-.gitleaks.toml       which key shapes Gitleaks looks for
-Makefile             short commands: make setup, make test, make demo, ...
-src/securegate/      the program
-tests/               automatic checks that prove the program works
-docs/                these pages
+policy.yaml                         the rules that decide block / warn / ignore
+.gitleaks.toml                      which key shapes Gitleaks looks for
+.pre-commit-config.yaml             the laptop gate (installed with make hooks)
+.github/workflows/secret-gate.yml   the merge gate: the check on every pull request
+Makefile                            short commands: make setup, make test, make demo, ...
+src/securegate/                     the program
+tools/                              helpers for the gates and the docs
+tests/                              automatic checks that prove the program works
+docs/                               these pages
 ```
 
 ## Modules
@@ -82,5 +85,7 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change the dashboard's colours, fonts or spacing | `src/securegate/ui/static/css/tokens.css` (see [Dashboard](ui.md)) |
 | change what a dashboard page shows | `src/securegate/ui/templates/` |
 | change the "How to fix" advice | `src/securegate/ui/fixes.py` |
+| change what the check on pull requests does | `.github/workflows/secret-gate.yml` (see [The two gates](merge-gate.md)) |
+| change the check before each commit | `.pre-commit-config.yaml` and `tools/precommit_hook.py` |
 
 When you change a behavior, update the matching page in `docs/` in the same commit.

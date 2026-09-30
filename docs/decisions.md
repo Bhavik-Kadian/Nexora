@@ -124,3 +124,30 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 ## 30. The sample report doubles the demo
 - **Chose:** `make sample-report` scans a demo repo holding the DemoPay app twice (once under `billing/`), which gives about 20 real findings.
 - **Why:** the usual demo scan has only 11 findings, and the designers need real data rather than invented rows.
+
+## 31. Two gates, and only one of them is the control
+- **Chose:** a laptop gate (a pre-commit hook on staged changes) and a merge gate (the `secret-gate` check on every pull request). Only the merge gate is required.
+- **Why:** the laptop gate gives the fastest feedback but runs only where it is installed and can be skipped with `--no-verify`. The merge gate runs for every pull request on GitHub.
+- **Rejected:** relying on the laptop gate alone.
+
+## 32. The laptop gate brings its own Python environment
+- **Chose:** a pre-commit hook with `language: python` and a small launcher, `tools/precommit_hook.py`, that runs this checkout's SecureGate.
+- **Why:** a plain `securegate` command would only work with `.venv` activated, and on Windows a bare `python` is a different Python without SecureGate. After `make hooks` the hook works offline.
+
+## 33. The merge gate scans every commit of a pull request
+- **Chose:** a range scan from the pull request's base to its head, with no path filters on the trigger.
+- **Why:** a secret deleted in a later commit is still in the history. A required check with path filters would never run for some pull requests and leave them stuck.
+
+## 34. The base branch judges each pull request
+- **Chose:** the workflow installs SecureGate, and takes `policy.yaml` and `.gitleaks.toml`, from the pull request's base commit.
+- **Why:** otherwise a pull request could loosen the policy or change the scanner and pass its own check. Changes to the gate count once merged.
+- **Known limit:** a pull request can still edit the workflow file, because GitHub runs the pull request's copy. `merge-gate.md` recommends requiring an approval.
+- **Rejected:** `pip install -e .` of the pull request itself, as first specified.
+
+## 35. Pinned actions and a checked Gitleaks download
+- **Chose:** `actions/checkout` and `actions/setup-python` at their latest major version (v7, looked up on 2026-09-30), pinned to full commit SHAs with the version in a comment. Gitleaks comes from its official release, and both the checksums file (its SHA-256 is pinned in the workflow) and the archive are verified before use.
+- **Why:** a tag can be moved to other code; a commit SHA cannot. The pinned checksum also protects against a release file being replaced later.
+
+## 36. The summary is a SecureGate command
+- **Chose:** `securegate summary` writes the Markdown for GitHub's job summary, in a step that always runs and never changes the result.
+- **Why:** it reuses the dashboard's report checks, so only masked values can reach GitHub's page, and it is tested like the rest of SecureGate.

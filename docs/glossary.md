@@ -2,7 +2,7 @@
 
 **127.0.0.1 (localhost)**: a web address that always means "this computer". The dashboard answers only there, so nobody else on the network can open it. Example: `http://127.0.0.1:5000`.
 
-**CI (continuous integration)**: a service that runs checks automatically every time someone proposes a change to a project. Example: GitHub shows a red cross on a pull request when a check fails. A later SecureGate version will run there as a merge gate.
+**CI (continuous integration)**: a service that runs checks automatically every time someone proposes a change to a project. Example: GitHub shows a red cross on a pull request when a check fails. SecureGate runs there as the merge gate, the `secret-gate` check.
 
 **Commit**: a saved snapshot of a project in Git, with a message, an author and a date.
 
@@ -34,10 +34,18 @@
 
 **Policy**: the rules in `policy.yaml` that decide block, warn or ignore for each finding.
 
-**Pre-commit**: the moment just before a change is saved as a commit. A pre-commit check can stop a secret before it ever enters the history. Example: `securegate scan . --mode staged` checks exactly the changes about to be committed.
+**Pre-commit**: the moment just before a change is saved as a commit. A pre-commit check can stop a secret before it ever enters the history. Example: after `make hooks`, every commit first runs `securegate scan . --mode staged`, which checks exactly the changes about to be committed.
+
+**Pull request**: a request to add a set of commits to the main version of a project. Others can review it, and checks run on it, before it is merged. Example: the demo in `demo-merge-gate.md` opens one.
 
 **Repository (repo)**: a project folder together with its Git history.
 
 **Rotation**: replacing a leaked secret with a new one and cancelling the old one, so the leaked copy stops working. It is the only real fix for a leak.
 
+**Ruleset**: a set of rules that GitHub enforces on branches. Example: "main only changes through a pull request whose `secret-gate` check passed".
+
 **Secret**: a password, key or token that gives access to something: money, data, servers or code. Example: a Stripe live key lets you take card payments.
+
+**Status check**: a test that GitHub runs on a pull request and shows as a green tick or a red cross. A ruleset can make it required. Example: `secret-gate`.
+
+**Workflow**: a list of steps that GitHub Actions runs on GitHub's own computers when something happens, such as a new pull request. Example: `.github/workflows/secret-gate.yml`.

@@ -13,6 +13,7 @@ A read-only dashboard shows the results in your browser; a merge gate and AI hel
 | [Getting started](getting-started.md) | install SecureGate and run your first scan |
 | [How it works](how-it-works.md) | follow one leaked key from discovery to report |
 | [Dashboard](ui.md) | see a report in your browser, or change the dashboard's colours |
+| [The two gates](merge-gate.md) | stop secrets before a commit (laptop) and before a merge (GitHub), and turn the GitHub check on |
 | [How it's built](how-its-built.md) | find your way around the files, or change a behavior |
 | [Testing](testing.md) | plant a new secret in the demo repo and read the scorecard |
 | [Glossary](glossary.md) | look up a word |
