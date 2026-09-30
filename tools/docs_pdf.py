@@ -172,7 +172,9 @@ def main(argv: list[str] | None = None) -> int:
     for orphan in sorted(set(OUT.glob("*.pdf")) - {OUT / f"{p.stem}.pdf" for p in pages}):
         orphan.unlink()
         print(f"removed     {orphan.relative_to(ROOT).as_posix()} (its page is gone)")
-    MANIFEST.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    MANIFEST.write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
     return 0
 
 
