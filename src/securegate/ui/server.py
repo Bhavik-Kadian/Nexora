@@ -13,6 +13,10 @@ from securegate.ui.app import create_app
 HOST = "127.0.0.1"  # never 0.0.0.0: the dashboard must not be reachable from other computers
 
 
+def _say(text: str) -> None:
+    print(text, flush=True)  # show the address at once, even when the output is piped
+
+
 def serve(
     report: Path,
     *,
@@ -21,7 +25,7 @@ def serve(
     open_browser: bool = False,
     server_factory: Callable[..., Any] = make_server,
     open_url: Callable[[str], object] = webbrowser.open,
-    say: Callable[[str], None] = print,
+    say: Callable[[str], None] = _say,
 ) -> int:
     """Serve the dashboard for `report` until Ctrl+C, then return exit code 0."""
     if not 1 <= port <= 65535:
