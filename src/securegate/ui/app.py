@@ -12,7 +12,8 @@ from flask.typing import ResponseReturnValue
 
 from securegate import __version__
 from securegate.finding import DECISIONS
-from securegate.ui.report_view import ReportProblem, load_report
+from securegate.ui.fixes import how_to_fix
+from securegate.ui.report_view import FINDING_ID, ReportProblem, load_report
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
@@ -61,6 +62,19 @@ def create_app(report_path: Path) -> Flask:
             unknown_filter=requested if requested is not None and decision is None else None,
             rows=report.filtered(decision),
             active="findings",
+        )
+
+    @app.get("/findings/<finding_id>")
+    def finding(finding_id: str) -> ResponseReturnValue:
+        report = load_report(report_path)
+        if isinstance(report, ReportProblem):
+            return _problem_page(report)
+        places = report.by_id(finding_id) if FINDING_ID.fullmatch(finding_id) else []
+        if not places:
+            message = f"There is no finding with id “{finding_id[:40]}” in this report."
+            return render_template("not_found.html", message=message, active="findings"), 404
+        return render_template(
+            "finding.html", places=places, fix=how_to_fix(places[0]), active="findings"
         )
 
     @app.get("/favicon.ico")

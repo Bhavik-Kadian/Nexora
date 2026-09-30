@@ -11,7 +11,7 @@ from helpers import Page
 from securegate.ui.app import create_app
 from securegate.ui.report_view import report_commands
 
-PAGES = ["/", "/findings", "/findings?decision=block"]
+PAGES = ["/", "/findings", "/findings?decision=block", "/findings/0123456789ab"]
 DECISION_ORDER = {"block": 0, "warn": 1, "ignore": 2}
 
 
@@ -155,6 +155,98 @@ def test_an_empty_filter_says_so(tmp_path: Path, sample_report: Path) -> None:
     report.write_text(json.dumps(data), encoding="utf-8")
     text = Page(body(create_app(report).test_client().get("/findings?decision=ignore"))).text
     assert "No findings with decision IGNORE." in text
+
+
+# --- the finding detail page ---------------------------------------------------------------
+
+
+def first_finding(path: Path, **wanted: object) -> dict:
+    return next(
+        f
+        for f in report_data(path)["findings"]
+        if all(f.get(key) == value for key, value in wanted.items())
+    )
+
+
+def test_every_finding_has_a_working_detail_page(client: FlaskClient, sample_report: Path) -> None:
+    broken = []
+    for finding in report_data(sample_report)["findings"]:
+        response = client.get(f"/findings/{finding['id']}")
+        page = Page(body(response))
+        if response.status_code != 200 or len(page.all("h1")) != 1 or page.all("script"):
+            broken.append(finding["id"])
+    assert broken == []
+
+
+def test_detail_shows_every_field(client: FlaskClient, sample_report: Path) -> None:
+    finding = report_data(sample_report)["findings"][0]
+    page = Page(body(client.get(f"/findings/{finding['id']}")))
+    row_headers = [th for th in page.all("th")]
+
+    assert all(key in page.text for key in finding)  # every findings.json key is labelled
+    assert len(row_headers) == len(finding) and all(th["scope"] == "row" for th in row_headers)
+    for key in ("masked_value", "fingerprint", "rule", "file", "remediation"):
+        assert str(finding[key]) in page.text
+
+
+def test_how_to_fix_a_real_key_goes_revoke_create_store_remove(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    finding = first_finding(sample_report, rule="stripe-access-token", decision="block")
+    text = Page(body(client.get(f"/findings/{finding['id']}"))).text
+    steps = ["Revoke it at the provider", "Create a new key", "secret manager", "Remove the old"]
+
+    positions = [text.find(step) for step in steps]
+    assert -1 not in positions and positions == sorted(positions)
+    assert "Stripe Dashboard" in text
+    assert "also in the Git history" in text  # the finding has a commit
+
+
+def test_how_to_fix_a_test_key_explains_the_warning(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    finding = first_finding(sample_report, file="tests/fixtures/stripe_webhook.json")
+    text = Page(body(client.get(f"/findings/{finding['id']}"))).text
+    assert "Why it is only a warning" in text
+    assert "tests, fixtures or docs folder" in text
+
+
+def test_how_to_fix_a_placeholder_explains_why_it_is_ignored(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    finding = first_finding(sample_report, decision="ignore")
+    text = Page(body(client.get(f"/findings/{finding['id']}"))).text
+    assert "Why it is ignored" in text
+    assert "placeholders" in text
+
+
+def test_a_secret_found_in_two_places_lists_both(tmp_path: Path, sample_report: Path) -> None:
+    data = report_data(sample_report)
+    twin = dict(data["findings"][0], file="copy/of/the/file.py", line=99)
+    data["findings"].append(twin)
+    report = tmp_path / "findings.json"
+    report.write_text(json.dumps(data), encoding="utf-8")
+
+    response = create_app(report).test_client().get(f"/findings/{twin['id']}")
+    text = Page(body(response)).text
+
+    assert response.status_code == 200
+    assert "Place 1 of 2" in text and "Place 2 of 2" in text
+    assert "copy/of/the/file.py" in text
+
+
+@pytest.mark.parametrize("finding_id", ["0123456789ab", "not-an-id", "ABCDEF012345"])
+def test_unknown_id_is_a_friendly_404(client: FlaskClient, finding_id: str) -> None:
+    response = client.get(f"/findings/{finding_id}")
+    text = Page(body(response)).text
+    assert response.status_code == 404
+    assert f"There is no finding with id “{finding_id}” in this report." in text
+
+
+def test_404_page_escapes_what_was_typed(client: FlaskClient) -> None:
+    response = client.get("/findings/<b>bold</b>")
+    assert response.status_code == 404
+    assert "<b>bold</b>" not in body(response)
 
 
 # --- no usable report: a friendly page ------------------------------------------------------

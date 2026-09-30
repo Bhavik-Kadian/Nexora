@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge %}
+{% set first = places[0] %}
+{% block title %}Finding {{ first.id }}{% endblock %}
+{% block content %}
+<p class="breadcrumb"><a href="/findings">All findings</a></p>
+
+<div class="page-heading">
+  <h1><code>{{ first.masked_value }}</code> {{ badge(first.decision) }}</h1>
+  <p class="lede">{{ first.rule }} in <code>{{ first.location }}</code>{% if places | length > 1 %}, and in {{ places | length - 1 }} more {{ "place" if places | length == 2 else "places" }}: the same secret, found again{% endif %}</p>
+</div>
+
+<section class="panel" aria-labelledby="fix-heading">
+  <h2 id="fix-heading">How to fix</h2>
+  <p>{{ fix.summary }}</p>
+  <ol class="steps">
+    {% for step in fix.steps %}
+    <li>{{ step }}</li>
+    {% endfor %}
+  </ol>
+</section>
+
+{% for place in places %}
+<section class="panel" aria-labelledby="fields-heading-{{ loop.index }}">
+  <h2 id="fields-heading-{{ loop.index }}">{% if places | length > 1 %}Place {{ loop.index }} of {{ places | length }}: every field{% else %}Every field{% endif %}</h2>
+  <table class="table table--fields">
+    <caption class="visually-hidden">Every field of this finding, as stored in the report</caption>
+    <tbody>
+      {% for field in place.fields() %}
+      <tr>
+        <th scope="row">{{ field.label }}<span class="field-key">{{ field.key }}</span></th>
+        <td>
+          {%- if field.key == "decision" -%}
+            {{ badge(field.value) }}
+          {%- elif field.value is none -%}
+            <span class="secondary">Not recorded</span>
+          {%- elif field.code -%}
+            <code>{{ field.value }}</code>
+          {%- else -%}
+            {{ field.value }}
+          {%- endif -%}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endfor %}
+{% endblock %}

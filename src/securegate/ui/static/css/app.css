@@ -165,6 +165,10 @@ h1 {
   line-height: var(--line-height-hero-700);
 }
 
+h1 code {
+  font-size: inherit;
+}
+
 h2 {
   margin-bottom: var(--spacing-l);
   font-size: var(--font-size-base-500);

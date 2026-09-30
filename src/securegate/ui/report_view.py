@@ -44,6 +44,16 @@ NUMBER_FIELDS = ("entropy", "confidence")
 
 
 @dataclass(frozen=True)
+class Field:
+    """One field of a finding, for the detail page."""
+
+    label: str
+    key: str  # the name in findings.json
+    value: str | None  # None: not recorded, for example no commit when files were scanned
+    code: bool = False  # shown in the monospace font
+
+
+@dataclass(frozen=True)
 class FindingView:
     """One finding as the dashboard shows it (masked value only)."""
 
@@ -78,6 +88,27 @@ class FindingView:
     def reason_text(self) -> str:
         _, colon, text = self.reason.partition(":")
         return text.strip() if colon else self.reason
+
+    def fields(self) -> list[Field]:
+        """Every field, in findings.json order, with a label for people."""
+        return [
+            Field("Id", "id", self.id, code=True),
+            Field("Rule", "rule", self.rule, code=True),
+            Field("Detector", "detector", self.detector),
+            Field("File", "file", self.file, code=True),
+            Field("Line", "line", str(self.line)),
+            Field("Commit", "commit", self.commit, code=True),
+            Field("Author", "author", self.author),
+            Field("Date", "date", self.date),
+            Field("Masked value", "masked_value", self.masked_value, code=True),
+            Field("Fingerprint", "fingerprint", self.fingerprint, code=True),
+            Field("Entropy", "entropy", f"{self.entropy:.3f} bits per character"),
+            Field("Confidence", "confidence", f"{self.confidence:.2f} (0 to 1)"),
+            Field("Severity", "severity", self.severity),
+            Field("Decision", "decision", self.decision),
+            Field("Reason", "reason", self.reason),
+            Field("Remediation", "remediation", self.remediation),
+        ]
 
 
 @dataclass(frozen=True)
