@@ -4,7 +4,7 @@ SecureGate checks a code project for **secrets**: passwords, keys and tokens tha
 It looks through every saved version of the project, not only the latest one.
 One readable file, `policy.yaml`, decides what happens to each thing it finds: **block**, **warn** or **ignore**.
 It never shows a whole secret: a found key appears as `sk_l****562d`.
-A read-only dashboard shows the results in your browser; a merge gate and AI helpers come later.
+It checks each commit on your laptop and each pull request on GitHub, and a read-only dashboard shows the results in your browser.
 
 ## Pages
 
@@ -19,3 +19,5 @@ A read-only dashboard shows the results in your browser; a merge gate and AI hel
 | [Testing](testing.md) | plant a new secret in the demo repo and read the scorecard |
 | [Glossary](glossary.md) | look up a word |
 | [Decisions](decisions.md) | know why something is the way it is |
+
+Every page is also a PDF, for printing or sharing: see the `docs/pdf/` folder. The pages above are the originals. After changing one, run `make docs-pdf` to update its PDF.

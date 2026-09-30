@@ -1,0 +1,126 @@
+/*
+  Print styles for the PDF copies of docs/ (tools/docs_pdf.py).
+  Colours, fonts and spacing come from the dashboard's tokens.css, which is included before
+  this file, so the PDFs and the dashboard change together.
+*/
+
+@page {
+  size: A4;
+  margin: 18mm 16mm;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base-300);
+  line-height: var(--line-height-base-300);
+  color: var(--color-neutral-foreground-1);
+  background: var(--color-neutral-background-1);
+}
+
+h1,
+h2,
+h3 {
+  font-weight: var(--font-weight-semibold);
+  break-after: avoid;
+}
+
+h1 {
+  margin: 0 0 var(--spacing-l);
+  font-size: var(--font-size-hero-700);
+  line-height: var(--line-height-hero-700);
+}
+
+h2 {
+  margin: var(--spacing-xxl) 0 var(--spacing-s);
+  font-size: var(--font-size-base-500);
+  line-height: var(--line-height-base-500);
+}
+
+h3 {
+  margin: var(--spacing-l) 0 var(--spacing-xs);
+  font-size: var(--font-size-base-400);
+  line-height: var(--line-height-base-400);
+}
+
+p,
+ul,
+ol {
+  margin: 0 0 var(--spacing-m);
+}
+
+li {
+  margin-bottom: var(--spacing-xs);
+}
+
+a {
+  color: var(--color-brand-foreground-1);
+}
+
+.page-ref {
+  color: var(--color-neutral-foreground-2);
+}
+
+code,
+pre {
+  font-family: var(--font-family-monospace);
+  font-size: var(--font-size-base-200);
+}
+
+code {
+  padding: 0 var(--spacing-xxs);
+  background: var(--color-neutral-background-3);
+  border-radius: var(--border-radius-small);
+}
+
+pre {
+  margin: 0 0 var(--spacing-m);
+  padding: var(--spacing-m);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--color-neutral-background-3);
+  border: var(--stroke-width-thin) solid var(--color-neutral-stroke-1);
+  border-radius: var(--border-radius-medium);
+  break-inside: avoid;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+}
+
+table {
+  width: 100%;
+  margin: 0 0 var(--spacing-m);
+  border-collapse: collapse;
+  font-size: var(--font-size-base-200);
+  line-height: var(--line-height-base-200);
+}
+
+th,
+td {
+  padding: var(--spacing-xs) var(--spacing-s);
+  text-align: left;
+  vertical-align: top;
+  border: var(--stroke-width-thin) solid var(--color-neutral-stroke-1);
+}
+
+th {
+  font-weight: var(--font-weight-semibold);
+  background: var(--color-neutral-background-3);
+}
+
+tr {
+  break-inside: avoid;
+}
+
+.diagram {
+  margin: var(--spacing-l) 0;
+  text-align: center;
+  break-inside: avoid;
+}
+
+.diagram svg {
+  max-width: 100%;
+  height: auto;
+}

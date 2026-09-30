@@ -1,2 +1,5 @@
 # Keep LF line endings in the repository and in working copies on every OS.
 * text=auto eol=lf
+
+# PDFs are binary: never convert line endings inside them.
+*.pdf binary

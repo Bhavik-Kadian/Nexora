@@ -9,6 +9,7 @@
 #   make ui         open the dashboard on the demo scan (http://127.0.0.1:5000, Ctrl+C stops)
 #   make sample-report  write sample_findings.json (about 20 findings) for the designers
 #   make hooks      install the laptop gate: scan staged changes before every commit
+#   make docs-pdf   rebuild docs/pdf/*.pdf from docs/*.md (needs Edge or Chrome)
 #
 # Works from PowerShell, cmd and Git Bash on Windows, and from macOS/Linux shells.
 # Use another interpreter with:  make setup PYTHON=python3
@@ -23,7 +24,7 @@ endif
 
 DEMO_DIR := ../securegate-demo
 
-.PHONY: setup test lint check demo scan-demo ui sample-report hooks
+.PHONY: setup test lint check demo scan-demo ui sample-report hooks docs-pdf
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -53,3 +54,6 @@ sample-report:
 
 hooks:
 	"$(VENV_PY)" -m pre_commit install --install-hooks
+
+docs-pdf:
+	"$(VENV_PY)" tools/docs_pdf.py

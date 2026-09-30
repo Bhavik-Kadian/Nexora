@@ -87,5 +87,6 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change the "How to fix" advice | `src/securegate/ui/fixes.py` |
 | change what the check on pull requests does | `.github/workflows/secret-gate.yml` (see [The two gates](merge-gate.md)) |
 | change the check before each commit | `.pre-commit-config.yaml` and `tools/precommit_hook.py` |
+| update the PDF copies of these pages | edit the `.md` page, then run `make docs-pdf` (`tools/docs_pdf.py`) |
 
-When you change a behavior, update the matching page in `docs/` in the same commit.
+When you change a behavior, update the matching page in `docs/` in the same commit, and run `make docs-pdf` so its PDF matches. A test fails when a PDF is out of date.

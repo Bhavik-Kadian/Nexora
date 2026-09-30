@@ -16,22 +16,23 @@ decides (block / warn / ignore), and reports show secrets masked. The plan is in
 5. Small modules, type hints, pure functions where possible. The Gitleaks runner is injected so
    tests can fake it.
 6. Ask before adding any dependency beyond PyYAML, Jinja2, Flask (runtime), pytest, ruff,
-   pre-commit (dev) and setuptools (build backend).
+   pre-commit, Markdown (dev) and setuptools (build backend).
 
 Test convention: never put a raw fake secret inside an `assert` (pytest prints the operands);
 compare masked values, counts or booleans instead.
 
 ## Commands
-- `make setup`: create .venv on Python 3.12 and install with dev extras
-- `make test` / `make lint` / `make check` (lint + test; run before every commit)
-- `make demo`: build the demo repo in ../securegate-demo (from src/securegate/demo/catalog.yaml)
-- `make scan-demo`: scan it; SecureGate exits 1 because blocked findings are expected
-- `make ui`: read-only dashboard on the demo scan (127.0.0.1 only, masked values, no JavaScript;
-  design values only in src/securegate/ui/static/css/tokens.css)
-- `make sample-report`: write sample_findings.json (about 20 findings) for the designers
+- `make setup`; `make check` (lint + test, before every commit); `make test`; `make lint`
+- `make demo` + `make scan-demo`: demo repo in ../securegate-demo; exit 1 is expected there
+- `make ui`: read-only dashboard (127.0.0.1, masked values, no JavaScript; design values only in
+  src/securegate/ui/static/css/tokens.css). `make sample-report`: sample_findings.json
+- `make hooks`: laptop gate (pre-commit). Merge gate: .github/workflows/secret-gate.yml
+- `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
 
 ## Environment
 - Gitleaks 8.30.1 (winget). Use only flags listed by `gitleaks git --help` / `gitleaks dir --help`.
 - Python 3.12.10 in .venv, GNU Make 4.4.1 (winget ezwinports.make), Git 2.55, Windows 11.
+- actionlint 1.7.12 (winget) for the workflow; headless Edge builds the PDFs.
 
-When behavior changes, update the matching docs/ page in the same commit.
+When behavior changes, update the matching docs/ page in the same commit, then run
+`make docs-pdf` (a test fails when docs/pdf/ is out of date).

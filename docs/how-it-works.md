@@ -54,7 +54,7 @@ The only real fix is **rotation**: create a new key at Stripe, switch the app to
 
 | Decision | What it means | What to do |
 |---|---|---|
-| block | A real secret is very likely exposed. SecureGate ends with exit code 1. A future merge gate will use that to stop the change. | Rotate the secret, then remove it from the code. |
+| block | A real secret is very likely exposed. SecureGate ends with exit code 1, which stops the commit on your laptop and turns the pull request's check red on GitHub. | Rotate the secret, then remove it from the code. |
 | warn | Maybe a secret, maybe not. It is reported, but it does not stop anything. | Check it. If it is real, treat it like a block. |
 | ignore | Not a secret, for example the placeholder `YOUR_API_KEY_HERE`. It is only listed in `findings.json`. | Nothing. |
 
