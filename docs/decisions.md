@@ -167,9 +167,15 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 ## 39. The dashboard never shares its port
 - **Chose:** SecureGate opens the dashboard's port itself, the way Python's `socket.create_server` does, and hands it to Flask's web server. A busy port stops the dashboard with exit code 2 and says what to do.
 - **Why:** Flask's web server (Werkzeug) opens ports with a setting, `SO_REUSEADDR`, that on Windows lets a second server join a port another one is already using. Two dashboards then shared port 5000 without an error, and which one answered was left to chance. Where the port was really refused, Werkzeug ended the program with exit code 1, SecureGate's code for "blocked".
-- **Rejected:** picking a free port automatically: the address would change from run to run, while the docs and `Start SecureGate.cmd` promise `127.0.0.1:5000`.
+- **Rejected:** picking a free port automatically: the address would change from run to run, while the docs and the menu promise `127.0.0.1:5000`.
 
 ## 40. A double-click launcher for Windows
-- **Chose:** `Start SecureGate.cmd` builds the demo only when it is missing, scans it every time, and opens the dashboard only after a scan that ended with exit code 0 or 1. It runs `.venv`'s Python directly, and asks before setting anything up.
-- **Why:** a rebuild would undo changes made to the demo for a presentation; a fresh scan follows the current `policy.yaml`; after a failed scan, the dashboard would show an old report. And `make` should not be needed just to see SecureGate work.
+- **Chose:** `Start SecureGate.cmd` runs `.venv`'s Python directly, asks before setting anything up, checks the setup with `securegate version`, then opens the menu (entry 41).
+- **Why:** `make` should not be needed just to see SecureGate work. A broken setup gets its own hint: delete `.venv`, then double-click again.
 - **Rejected:** a PowerShell script: double-clicking one opens it in Notepad.
+
+## 41. The double-click opens a menu
+- **Chose:** `securegate menu` (also `make menu`): a numbered menu in the terminal, under a padlock and the name in big letters. Each choice runs the `securegate` commands a person would type, and shows each command before running it. Choice 1 builds the demo only when it is missing, scans it every time, and offers the dashboard only after a scan that ended with exit code 0 or 1. Enter closes the dashboard and brings the menu back.
+- **Why:** SecureGate should open like an app for people who don't type commands, yet stay exactly the tool the gates use: the same commands, exit codes and masking. A rebuild would undo changes made to the demo for a presentation; a fresh scan follows the current `policy.yaml`; after a failed scan, the dashboard would only show the failure. Enter rather than Ctrl+C, because after Ctrl+C, cmd.exe asks "Terminate batch job (Y/N)?".
+- **Colour** only in a real terminal, and never when `NO_COLOR` is set. ASCII letters when the terminal cannot show block characters. Q ends the menu with exit code 0; if its input ends, it stops with exit code 2, so it can never stand in for a gate.
+- **Rejected:** a terminal-UI library such as Rich or Textual (a new dependency); answering with a single key press (Windows-only keyboard calls, and tests could not type the answers); the dashboard in a second window (one more window to close).

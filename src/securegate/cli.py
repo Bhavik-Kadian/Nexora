@@ -7,9 +7,10 @@ expected or not, ends with exit code 2.
 
 import argparse
 import contextlib
+import logging
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from securegate import __version__
@@ -32,6 +33,7 @@ from securegate.scanners import gitleaks
 EXIT_PASS = 0
 EXIT_BLOCK = 1
 EXIT_ERROR = 2
+DASHBOARD_PORT = 5000
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -75,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--report", default="findings.json", help="report to show (default: %(default)s)"
     )
     ui.add_argument(
-        "--port", type=int, default=5000, help="port on 127.0.0.1 (default: %(default)s)"
+        "--port", type=int, default=DASHBOARD_PORT, help="port on 127.0.0.1 (default: %(default)s)"
     )
     ui.add_argument("--open", action="store_true", help="open the dashboard in your web browser")
     ui.add_argument("--debug", action="store_true", help="print error details in this terminal")
@@ -97,6 +99,10 @@ def build_parser() -> argparse.ArgumentParser:
     summary.add_argument("--report", default="findings.json", help="default: %(default)s")
 
     commands.add_parser("version", help="print the SecureGate and Gitleaks versions")
+
+    commands.add_parser(
+        "menu", help="open the menu: scan, see the rules and open the dashboard without typing"
+    )
     return parser
 
 
@@ -118,6 +124,8 @@ def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = 
         if args.command == "demo-token":
             print(new_demo_token())  # fake by design: ACME Pay does not exist
             return EXIT_PASS
+        if args.command == "menu":
+            return _menu(runner)
         return _scan(args, runner)
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -211,6 +219,33 @@ def _ui(args: argparse.Namespace) -> int:
     from securegate.ui.server import serve  # Flask loads only when the dashboard is used
 
     return serve(Path(args.report), port=args.port, debug=args.debug, open_browser=args.open)
+
+
+def _menu(runner: gitleaks.Runner) -> int:
+    from securegate.menu.app import run_menu  # the menu loads only when it is used
+    from securegate.menu.terminal import real_terminal
+
+    return run_menu(
+        real_terminal(),
+        run_command=lambda argv: _run_for_menu(argv, runner),
+        open_dashboard=_open_dashboard_for_menu,
+        gitleaks_version=gitleaks.gitleaks_version(runner),
+    )
+
+
+def _run_for_menu(argv: Sequence[str], runner: gitleaks.Runner) -> int:
+    """Run one command for the menu, exactly as if it had been typed."""
+    try:
+        return main(argv, runner=runner)
+    except SystemExit as stopped:  # argparse refused the arguments, and said why
+        return stopped.code if isinstance(stopped.code, int) else EXIT_ERROR
+
+
+def _open_dashboard_for_menu(report: Path, wait: Callable[[], object]) -> int:
+    from securegate.ui.server import serve
+
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)  # no line for each page in the menu
+    return serve(report, port=DASHBOARD_PORT, open_browser=True, wait=wait)
 
 
 def _sample_report(args: argparse.Namespace, runner: gitleaks.Runner) -> int:

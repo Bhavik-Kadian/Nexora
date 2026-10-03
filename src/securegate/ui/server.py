@@ -2,6 +2,7 @@
 
 import os
 import socket
+import threading
 import webbrowser
 from collections.abc import Callable
 from pathlib import Path
@@ -46,8 +47,13 @@ def serve(
     server_factory: Callable[..., Any] = make_unshared_server,
     open_url: Callable[[str], object] = webbrowser.open,
     say: Callable[[str], None] = _say,
+    wait: Callable[[], object] | None = None,
 ) -> int:
-    """Serve the dashboard for `report` until Ctrl+C, then return exit code 0."""
+    """Serve the dashboard for `report` until Ctrl+C, then return exit code 0.
+
+    With `wait`, it serves in the background until wait() returns, then stops: the menu uses
+    this to close the dashboard when Enter is pressed.
+    """
     if not 1 <= port <= 65535:
         raise ConfigError(f"--port must be a number from 1 to 65535, not {port}")
     app = create_app(report)
@@ -62,13 +68,27 @@ def serve(
         ) from None
     url = f"http://{HOST}:{server.server_address[1]}/"
     say(f"SecureGate dashboard: {url}")
-    say(f"Showing {report}. Press Ctrl+C to stop.")
+    say(f"Showing {report}. Press Ctrl+C to stop." if wait is None else f"Showing {report}.")
     if open_browser:
         open_url(url)
     try:
-        server.serve_forever()
+        if wait is None:
+            server.serve_forever()
+        else:
+            _serve_until(server, wait)
     except KeyboardInterrupt:
         pass
     finally:
         server.server_close()
     return 0
+
+
+def _serve_until(server: Any, wait: Callable[[], object]) -> None:
+    """Serve in the background until wait() returns or raises, then stop serving."""
+    thread = threading.Thread(target=server.serve_forever, name="dashboard", daemon=True)
+    thread.start()
+    try:
+        wait()
+    finally:
+        server.shutdown()
+        thread.join()

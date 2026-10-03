@@ -21,11 +21,11 @@ Short on time? Run `make demo` before you start, then show steps 1, 3, 5 and 6 (
 
 ## Where does it start?
 
-**The one-click way:** double-click `Start SecureGate.cmd` in the project folder. It builds the demo project (the first time only), scans it, shows the table and opens the dashboard in your browser: what `make demo`, `make scan-demo` and `make ui` do. Its window must stay open while you use the dashboard; close the window to stop it. If SecureGate is not set up yet, it offers to do that first.
+**The one-click way:** double-click `Start SecureGate.cmd` in the project folder. SecureGate opens in its own window: a padlock, its name in big letters, what is ready, and a menu. Type a number and press Enter. **1** builds the demo project (the first time only) and scans it, like `make demo` and `make scan-demo`. Press Enter after the scan to open the dashboard in your browser, like `make ui`, and press Enter in the window again to close the dashboard. **2** scans another project, **3** opens the dashboard on the last scan, **4** shows the rules, **5** builds the demo project again from scratch, **6** checks the setup, and **Q** closes the window. If SecureGate is not set up yet, it offers to do that first.
 
-Under the hood, SecureGate is a **command-line program**: you type a command, it does its job, prints the result and stops. Only the dashboard keeps running, and you look at it in your web browser. `Start SecureGate.cmd` just types the commands for you.
+Under the hood, SecureGate is a **command-line program**: you type a command, it does its job, prints the result and stops. Only the dashboard keeps running, and you look at it in your web browser. The menu just types the commands for you: it shows each one, such as `> securegate scan ..\securegate-demo --mode repo --out findings-demo.json`, before running it.
 
-- **The program** is `securegate`. `make setup` installed it inside the project folder, as `.venv\Scripts\securegate.exe`. You start it by typing a command, or let `Start SecureGate.cmd` type them.
+- **The program** is `securegate`. `make setup` installed it inside the project folder, as `.venv\Scripts\securegate.exe`. You start it by typing a command, or let the menu type them.
 - **The shortcuts.** Each `make` command is a short name for a longer command. They are all written in the file `Makefile` in the project folder. `make` prints the real command before running it, so the judges can see it.
 - **The code.** Every command starts in the same place: the function `main()` in `src/securegate/cli.py`. The line `securegate = "securegate.cli:main"` in `pyproject.toml` connects the command's name to that function. From there, a scan runs Gitleaks (`scanners/gitleaks.py`), masks each value (`pipeline.py` and `mask.py`), lets the policy decide (`policy.py`), then prints and saves the report (`report.py`). [How it's built](how-its-built.md) has the full map.
 
@@ -35,6 +35,7 @@ Under the hood, SecureGate is a **command-line program**: you type a command, it
 | `make demo` | `.venv\Scripts\securegate demo-repo --out ..\securegate-demo --seed 42 --force` | builds the demo project |
 | `make scan-demo` | `.venv\Scripts\securegate scan ..\securegate-demo --mode repo --out findings-demo.json` | scans the demo project's whole history |
 | `make ui` | `.venv\Scripts\securegate ui --report findings-demo.json --open` | starts the dashboard and opens it in the browser |
+| `make menu` | `.venv\Scripts\securegate menu` | opens the menu, like double-clicking `Start SecureGate.cmd` |
 | `make test` | `.venv\Scripts\python.exe -m pytest` | runs the automatic tests and prints the scorecard |
 | `make check` | the code style check (ruff), then the tests | the full check before every commit |
 | `make hooks` | `.venv\Scripts\python.exe -m pre_commit install --install-hooks` | turns on the laptop gate (once; needs the internet) |
@@ -61,7 +62,7 @@ It prints `True`. If it prints `False`, you are in another folder.
 
 Make the text big enough for the judges: hold Ctrl and turn the mouse wheel.
 
-The dashboard is the only part you see in a web browser, at `http://127.0.0.1:5000`. That address only works on this laptop, and only while `make ui` or the window of `Start SecureGate.cmd` is running.
+The dashboard is the only part you see in a web browser, at `http://127.0.0.1:5000`. That address only works on this laptop, and only while `make ui` runs or the menu shows the dashboard.
 
 ## Where does the data come from?
 
@@ -107,7 +108,7 @@ It prints `securegate 0.1.0` and `gitleaks 8.30.1`. If it says `gitleaks not fou
 make check
 ```
 
-It takes under a minute and ends with a line like `410 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
+It takes under a minute and ends with a line like `477 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
 
 3. Turn on the laptop gate, for step 6:
 
@@ -144,6 +145,7 @@ The first push opens a window to sign in to GitHub. If the push is refused becau
 2. Open PowerShell in the project folder and make the text bigger.
 3. Check that Gitleaks is found: `.venv\Scripts\securegate version` prints `gitleaks 8.30.1`.
 4. Check that the laptop gate is on: `Test-Path .git\hooks\pre-commit` prints `True`. If it prints `False`, run `make hooks` (needs the internet) or skip step 6.
+   Or check steps 3 and 4 in one go: double-click `Start SecureGate.cmd` and choose 6.
 5. For step 7, open the pull request in a browser tab.
 6. Type `cls` to clear the screen.
 
@@ -293,7 +295,7 @@ Show, in this order:
 
 > The dashboard is read-only and runs only on this laptop: 127.0.0.1 means "this computer", so nobody else on the network can open it. It needs no internet, and its pages contain no JavaScript. It checks every value again before showing it: a report that holds an unmasked value is refused, never shown.
 
-To stop the dashboard, click in PowerShell and press **Ctrl+C**. Tip: to keep it open for the rest of the demo, run `make ui` in a second PowerShell window instead, or double-click `Start SecureGate.cmd`: it scans again and keeps the dashboard in its own window.
+To stop the dashboard, click in PowerShell and press **Ctrl+C**. Tip: to keep it open for the rest of the demo, run `make ui` in a second PowerShell window instead. In SecureGate's menu, 3 opens the dashboard, and Enter in the menu's window closes it.
 
 ### Step 6. The laptop gate stops a commit (1 to 2 minutes)
 
@@ -364,7 +366,7 @@ No internet? Show your screenshots, or `docs/pdf/merge-gate.pdf`, and make the s
 make test
 ```
 
-After about 35 seconds, the judges see the scorecard, and then the last line: `410 passed, 1 skipped`.
+After about 40 seconds, the judges see the scorecard, and then the last line: `477 passed, 1 skipped`.
 
 ```
 repo mode, seed 42
@@ -397,7 +399,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 ## After the demo
 
-- Stop the dashboard if it is still running: press Ctrl+C in its PowerShell window, or close the window of `Start SecureGate.cmd`.
+- Stop the dashboard if it is still running: press Ctrl+C in its PowerShell window, or Enter in the menu's window. Choose Q to close the menu.
 - Check that `demo_leak.py` is gone: `git status --short` does not list it.
 - On GitHub, finish the demo pull request: step 7 of [Demo: the merge gate](demo-merge-gate.md) closes it without merging and deletes the branch.
 - You can run `make demo` again at any time. It rebuilds exactly the same demo project.
@@ -426,7 +428,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **Does it need the internet?** No. Scans, the dashboard and the laptop gate work offline. Only the merge gate needs GitHub.
 
-**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 411 automatic tests.
+**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 478 automatic tests.
 
 ## If something goes wrong
 
@@ -443,6 +445,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | The commit in step 6 went through | The laptop gate was not on. Undo the commit with `git reset --soft HEAD~1`, then run the clean-up commands of step 6. |
 | No internet where you present | Steps 1 to 6 and step 8 work offline. For step 7, show your screenshots. |
 | The window of `Start SecureGate.cmd` says `SecureGate stopped` | The lines above it say what went wrong, often one of the problems in this table. Press a key to close the window, fix the problem, then double-click the file again. |
+| The window of `Start SecureGate.cmd` asks `Terminate batch job (Y/N)?` | Someone pressed Ctrl+C. Press Y to close the window, then double-click the file again. To close SecureGate normally, choose Q in its menu. |
 | A scan fails on the day and you can't fix it | Show the spare report: `.venv\Scripts\securegate ui --report sample_findings.json --open`. |
 
 ## Where everything is
@@ -450,7 +453,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | Where | What it is |
 |---|---|
 | `Makefile` | the shortcut commands (`make ...`) |
-| `Start SecureGate.cmd` | double-click it to build the demo (the first time only), scan it and open the dashboard |
+| `Start SecureGate.cmd` | double-click it to open SecureGate's menu: scan the demo or another project, open the dashboard, see the rules |
 | `.venv\` | SecureGate and its tools, installed by `make setup`. The program is `.venv\Scripts\securegate.exe`. |
 | `src/securegate/` | the program's code. Every command starts in `cli.py`. |
 | `policy.yaml` | the rules: block, warn or ignore |

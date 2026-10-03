@@ -155,6 +155,33 @@ def test_real_server_answers_every_page_and_frees_its_port_when_stopped(
     make_unshared_server(HOST, port, create_app(sample_report)).server_close()
 
 
+def test_with_wait_the_dashboard_runs_until_wait_returns(sample_report: Path) -> None:
+    """How the menu shows the dashboard: it serves until Enter is pressed, then stops."""
+    port = free_port()
+    pages: list[int] = []
+    said: list[str] = []
+
+    def load_a_page() -> None:  # the menu waits for Enter here, while the browser loads pages
+        with urllib.request.urlopen(f"http://{HOST}:{port}/", timeout=10) as response:
+            pages.append(response.status)
+
+    code = serve(sample_report, port=port, wait=load_a_page, say=said.append)
+
+    assert (code, pages) == (0, [200])
+    assert said == [f"SecureGate dashboard: http://{HOST}:{port}/", f"Showing {sample_report}."]
+    make_unshared_server(HOST, port, create_app(sample_report)).server_close()  # port free again
+
+
+def test_ctrl_c_while_waiting_stops_the_dashboard_too(sample_report: Path) -> None:
+    port = free_port()
+
+    def ctrl_c() -> None:
+        raise KeyboardInterrupt
+
+    assert serve(sample_report, port=port, wait=ctrl_c, say=lambda _: None) == 0
+    make_unshared_server(HOST, port, create_app(sample_report)).server_close()  # port free again
+
+
 @pytest.mark.skipif(
     not (gitleaks_installed() and git_installed()), reason="gitleaks or git is not installed"
 )

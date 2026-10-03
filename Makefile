@@ -7,6 +7,8 @@
 #   make scan-demo  scan the demo repo; SecureGate exits 1 there because it finds secrets
 #                   to block, so make reports "Error 1"
 #   make ui         open the dashboard on the demo scan (http://127.0.0.1:5000, Ctrl+C stops)
+#   make menu       open SecureGate's menu: scan, see the rules and open the dashboard without
+#                   typing commands (what Start SecureGate.cmd opens; Q quits)
 #   make sample-report  write sample_findings.json (about 20 findings) for the designers
 #   make hooks      install the laptop gate: scan staged changes before every commit
 #   make docs-pdf   rebuild docs/pdf/*.pdf from docs/*.md (needs Edge or Chrome)
@@ -24,7 +26,7 @@ endif
 
 DEMO_DIR := ../securegate-demo
 
-.PHONY: setup test lint check demo scan-demo ui sample-report hooks docs-pdf
+.PHONY: setup test lint check demo scan-demo ui menu sample-report hooks docs-pdf
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -48,6 +50,9 @@ scan-demo:
 
 ui:
 	"$(VENV_PY)" -m securegate ui --report findings-demo.json --open
+
+menu:
+	"$(VENV_PY)" -m securegate menu
 
 sample-report:
 	"$(VENV_PY)" -m securegate sample-report --out sample_findings.json

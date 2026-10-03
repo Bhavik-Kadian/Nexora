@@ -6,7 +6,7 @@ One readable file, `policy.yaml`, decides what happens to each thing it finds: *
 It never shows a whole secret: a found key appears as `sk_l****562d`.
 It checks each commit on your laptop and each pull request on GitHub, and a read-only dashboard shows the results in your browser.
 
-**See it work:** on Windows, double-click `Start SecureGate.cmd` in the SecureGate folder. It scans a demo project full of fake secrets and opens the results in your browser. The first time, install the tools in step 1 of [Getting started](getting-started.md).
+**See it work:** on Windows, double-click `Start SecureGate.cmd` in the SecureGate folder. SecureGate opens with its menu. Type 1 and press Enter to scan a demo project full of fake secrets, then press Enter again to see the results in your browser. The first time, install the tools in step 1 of [Getting started](getting-started.md).
 
 ## Pages
 

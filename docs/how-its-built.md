@@ -10,7 +10,7 @@ policy.yaml                         the rules that decide block / warn / ignore
 .pre-commit-config.yaml             the laptop gate (installed with make hooks)
 .github/workflows/secret-gate.yml   the merge gate: the check on every pull request
 Makefile                            short commands: make setup, make test, make demo, ...
-Start SecureGate.cmd                double-click: build the demo, scan it, open the dashboard
+Start SecureGate.cmd                double-click: open SecureGate's menu
 src/securegate/                     the program
 tools/                              helpers for the gates and the docs
 tests/                              automatic checks that prove the program works
@@ -35,6 +35,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `summary.py` | Turns `findings.json` into a short Markdown summary (`securegate summary`), used on GitHub's check page. |
 | `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. |
 | `ui/` | The read-only dashboard: `app.py` (the pages), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/`. |
+| `menu/` | The menu that `Start SecureGate.cmd` and `make menu` open: `app.py` (the screen and the choices; each choice runs a `securegate` command and shows it first), `art.py` (the padlock and the big letters) and `terminal.py` (colours, only in a real terminal). |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
 
 ## The Finding format
@@ -88,7 +89,9 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change the "How to fix" advice | `src/securegate/ui/fixes.py` |
 | change what the check on pull requests does | `.github/workflows/secret-gate.yml` (see [The two gates](merge-gate.md)) |
 | change the check before each commit | `.pre-commit-config.yaml` and `tools/precommit_hook.py` |
-| change what double-clicking `Start SecureGate.cmd` does | `Start SecureGate.cmd` (a Windows batch file; `tests/test_launcher.py` checks the commands it runs) |
+| change the menu's choices, or what they run | `src/securegate/menu/app.py` (`tests/test_menu.py` checks that every command it runs exists) |
+| change the art on the menu's first screen, or its colours | `src/securegate/menu/art.py` |
+| change what double-clicking `Start SecureGate.cmd` does before the menu opens | `Start SecureGate.cmd` (a Windows batch file; `tests/test_launcher.py` checks the commands it runs) |
 | update the PDF copies of these pages | edit the `.md` page, then run `make docs-pdf` (`tools/docs_pdf.py`) |
 
 When you change a behavior, update the matching page in `docs/` in the same commit, and run `make docs-pdf` so its PDF matches. A test fails when a PDF is out of date.

@@ -1,8 +1,8 @@
-"""The double-click launcher, Start SecureGate.cmd.
+"""The double-click launcher, Start SecureGate.cmd: it checks the setup, then opens the menu.
 
 On every OS: it only runs securegate commands that exist, in the right order, and cmd.exe can
 read it. On Windows it really runs, but with a stand-in for SecureGate that records each command
-and exits with the code a test chooses: nothing is built or scanned, and no browser opens.
+and exits with the code a test chooses: no menu opens. tests/test_menu.py tests the menu.
 """
 
 import os
@@ -41,8 +41,8 @@ def commands(pattern: re.Pattern[str]) -> list[list[str]]:
 # --- what it runs (every OS) ------------------------------------------------------------------
 
 
-def test_it_checks_the_setup_builds_the_demo_scans_it_and_opens_the_dashboard() -> None:
-    assert [args[0] for args in commands(RUNS)] == ["version", "demo-repo", "scan", "ui"]
+def test_it_checks_the_setup_then_opens_the_menu() -> None:
+    assert [args[0] for args in commands(RUNS)] == ["version", "menu"]
 
 
 @pytest.mark.parametrize("args", commands(RUNS) + commands(SUGGESTS), ids=" ".join)
@@ -51,14 +51,6 @@ def test_every_command_it_runs_or_suggests_exists(args: list[str]) -> None:
         build_parser().parse_args(args)
     except SystemExit:
         pytest.fail(f"`securegate {' '.join(args)}` is no longer a valid command")
-
-
-def test_the_dashboard_shows_the_scan_of_the_demo_it_built() -> None:
-    parsed = {args[0]: build_parser().parse_args(args) for args in commands(RUNS)}
-    assert parsed["scan"].path == parsed["demo-repo"].out
-    assert parsed["scan"].mode == "repo"  # the whole history, so the deleted key is found too
-    assert parsed["ui"].report == parsed["scan"].out
-    assert parsed["ui"].open
 
 
 def test_cmd_exe_can_read_it() -> None:
@@ -74,15 +66,10 @@ windows_only = pytest.mark.skipif(sys.platform != "win32", reason="the launcher 
 STAND_IN = '''"""Stands in for SecureGate: records the command, then exits with the chosen code."""
 import os
 import sys
-from pathlib import Path
 
 command = sys.argv[1]
 with open(os.environ["LAUNCHER_LOG"], "a", encoding="utf-8") as log:
     log.write(command + "\\n")
-if command == "demo-repo":
-    out = Path(sys.argv[sys.argv.index("--out") + 1])
-    out.mkdir(parents=True, exist_ok=True)
-    (out / ".securegate-demo").touch()
 raise SystemExit(int(os.environ.get("EXIT_" + command.upper().replace("-", "_"), "0")))
 '''
 
@@ -117,7 +104,7 @@ def securegate_folder(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture
 def folder(securegate_folder: Path, tmp_path: Path) -> Path:
-    """A fresh copy for each test; the demo project would go next to it."""
+    """A fresh copy for each test."""
     return Path(shutil.copytree(securegate_folder, tmp_path / "SecureGate"))
 
 
@@ -149,52 +136,31 @@ def run_launcher(
 
 
 @windows_only
-def test_the_demo_is_built_the_first_time_only(folder: Path, stand_in: Path) -> None:
-    first = run_launcher(folder, stand_in)
-    second = run_launcher(folder, stand_in)
-
-    assert first.commands == ["version", "demo-repo", "scan", "ui"]
-    assert second.commands == ["version", "scan", "ui"]
-    assert "The demo project is ready" in second.out
-    assert (first.exit_code, second.exit_code) == (0, 0)
-
-
-@windows_only
-def test_blocked_secrets_are_expected_and_still_open_the_dashboard(
-    folder: Path, stand_in: Path
-) -> None:
-    run = run_launcher(folder, stand_in, scan=1)
-    assert run.commands == ["version", "demo-repo", "scan", "ui"]
-    assert "That is the expected result" in run.out
+def test_it_opens_the_menu_and_choosing_q_closes_the_window(folder: Path, stand_in: Path) -> None:
+    run = run_launcher(folder, stand_in)
+    assert run.commands == ["version", "menu"]
+    assert "SecureGate stopped" not in run.out
     assert run.exit_code == 0
 
 
 @windows_only
-@pytest.mark.parametrize("scan_exit", [2, 3, -1])
-def test_a_failed_scan_never_opens_the_dashboard(
-    folder: Path, stand_in: Path, scan_exit: int
+@pytest.mark.parametrize("menu_exit", [2, 1, -1])
+def test_a_menu_that_stops_with_an_error_keeps_the_window_open(
+    folder: Path, stand_in: Path, menu_exit: int
 ) -> None:
-    run = run_launcher(folder, stand_in, scan=scan_exit)
-    assert run.commands == ["version", "demo-repo", "scan"]
+    run = run_launcher(folder, stand_in, menu=menu_exit)
+    assert run.commands == ["version", "menu"]
     assert "SecureGate stopped" in run.out
     assert run.exit_code == 1
 
 
 @windows_only
-@pytest.mark.parametrize(
-    ("step", "ran", "hint"),
-    [
-        ("version", ["version"], "Delete that folder"),
-        ("demo_repo", ["version", "demo-repo"], "SecureGate stopped"),
-        ("ui", ["version", "demo-repo", "scan", "ui"], "open in another window"),
-    ],
-)
-def test_a_failed_step_stops_there_and_says_what_to_do(
-    folder: Path, stand_in: Path, step: str, ran: list[str], hint: str
+def test_a_broken_setup_never_opens_the_menu_and_says_what_to_do(
+    folder: Path, stand_in: Path
 ) -> None:
-    run = run_launcher(folder, stand_in, **{step: 2})
-    assert run.commands == ran
-    assert hint in run.out
+    run = run_launcher(folder, stand_in, version=2)
+    assert run.commands == ["version"]
+    assert "Delete that folder" in run.out
     assert run.exit_code == 1
 
 

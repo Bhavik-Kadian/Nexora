@@ -14,7 +14,7 @@ make ui
 
 `make ui` starts the dashboard and opens it in your browser at `http://127.0.0.1:5000`. To stop it, press **Ctrl+C** in the terminal.
 
-On Windows you can instead double-click `Start SecureGate.cmd` in the SecureGate folder. It builds the demo project (the first time only), scans it and opens the dashboard, in a window of its own. Close that window to stop the dashboard.
+You can also open it from SecureGate's menu: double-click `Start SecureGate.cmd` in the SecureGate folder on Windows, or run `make menu`. Choose 1 to scan the demo project and open the dashboard on the result, or 3 to open the dashboard on the last scan. While the dashboard is open, the menu waits: press Enter in its window to close the dashboard and go back to the menu.
 
 To show another report, run this in the SecureGate folder:
 

@@ -39,7 +39,14 @@ cd SecureGate
 
 Replace `<repository-address>` with the address your team gave you. `cd` means "change directory": it moves you into a folder.
 
-**The quick way on Windows:** open the SecureGate folder in File Explorer and double-click `Start SecureGate.cmd`. It does steps 3, 4 and 6 for you. The first time, it asks to set SecureGate up and builds the demo project; every time, it scans the demo project and opens the dashboard in your browser. Keep its window open while you use the dashboard, and close the window to stop it. The steps below do the same with commands, which you need to scan your own projects.
+**The quick way on Windows:** open the SecureGate folder in File Explorer and double-click `Start SecureGate.cmd`. The first time, it asks to set SecureGate up (step 3). Then SecureGate opens in its own window, with a menu. Type a number and press Enter:
+
+- **1** scans the demo project, and builds it the first time (step 4). After the scan, press Enter to see the results in your browser (step 6), and press Enter again to close the dashboard.
+- **2** scans a project of your own (step 5): type its folder, or drag the folder into the window.
+- **3** opens the dashboard on the last scan, **4** shows the rules in `policy.yaml`, **5** builds the demo project again from scratch, and **6** checks the setup.
+- **Q** closes SecureGate.
+
+The menu runs the same commands as the steps below, and shows each one before it runs it. `make menu` opens the same menu from PowerShell, and on macOS and Linux.
 
 ## 3. Set it up (once)
 
