@@ -6,49 +6,69 @@
   tokens, change the values below. The names follow Fluent 2: Figma's
   colorNeutralBackground1 is --color-neutral-background-1 here.
 
+  The dashboard is dark. Printing (and "Save as PDF") switches to the light values in the
+  @media print block at the end, which saves ink and reads well on paper.
+
   Text colours meet WCAG AA (at least 4.5:1) on the backgrounds they are used on, and a test
   checks every pair. Decisions are never shown by colour alone: there is always a text badge.
 */
 
 :root {
-  /* Neutral colours */
-  --color-neutral-background-1: #FFFFFF;        /* cards, tables, header */
-  --color-neutral-background-1-hover: #F5F5F5;  /* table row or tab under the pointer */
-  --color-neutral-background-2: #FAFAFA;        /* page */
-  --color-neutral-background-3: #F5F5F5;        /* table headings, commands, bar track */
-  --color-neutral-foreground-1: #242424;        /* text */
-  --color-neutral-foreground-2: #616161;        /* secondary text */
-  --color-neutral-stroke-1: #E0E0E0;            /* 1px borders */
-  --color-neutral-stroke-1-hover: #C7C7C7;      /* card border under the pointer */
+  color-scheme: dark;
+
+  /* Neutral colours: a cool, slightly blue slate */
+  --color-neutral-background-1: #12161F;        /* cards, tables, header */
+  --color-neutral-background-1-hover: #1A202B;  /* table row or button under the pointer */
+  --color-neutral-background-2: #0B0E14;        /* page */
+  --color-neutral-background-3: #171C26;        /* table headings, buttons, commands */
+  --color-neutral-foreground-1: #E6EAF0;        /* text */
+  --color-neutral-foreground-2: #9BA5B4;        /* secondary text */
+  --color-neutral-stroke-1: #232A36;            /* 1px borders of cards and buttons */
+  --color-neutral-stroke-1-hover: #323B4A;      /* border under the pointer */
+  --color-neutral-stroke-2: #1C222C;            /* lines between table rows */
 
   /* Brand: the one accent colour */
-  --color-brand-foreground-1: #0F6CBD;          /* links, active tab, bars */
-  --color-brand-foreground-1-hover: #115EA3;
-  --color-brand-background-2: #EBF3FC;          /* active filter */
+  --color-brand-foreground-1: #5AB0FF;          /* links, active tab, bars */
+  --color-brand-foreground-1-hover: #85C5FF;
+  --color-brand-background-2: #10263E;          /* active filter, bar track */
 
   /* Keyboard focus */
-  --color-stroke-focus: #000000;
+  --color-stroke-focus: #9CD0FF;
 
   /* Decisions (always paired with a BLOCK / WARN / IGNORE text badge) */
-  --color-block-foreground: #B10E1C;
-  --color-block-background: #FDF3F4;
-  --color-block-border: #EEACB2;
-  --color-warn-foreground: #835B00;
-  --color-warn-background: #FFF4CE;
-  --color-warn-border: #F2D276;
-  --color-ignore-foreground: #616161;
-  --color-ignore-background: #F5F5F5;
-  --color-ignore-border: #D1D1D1;
+  --color-block-foreground: #FF8F8F;
+  --color-block-background: #2B1216;
+  --color-block-border: #6A262D;
+  --color-warn-foreground: #F2C35B;
+  --color-warn-background: #2A2009;
+  --color-warn-border: #6B5216;
+  --color-ignore-foreground: #A7B1BF;
+  --color-ignore-background: #1A1F28;
+  --color-ignore-border: #3A4351;
+
+  /* A scan that passed (always paired with the word PASS) */
+  --color-pass-foreground: #5FD47E;
+  --color-pass-background: #0F2117;
+  --color-pass-border: #246B3A;
+
+  /* Severity dots (always next to the severity's name) */
+  --color-severity-critical: #F25C5C;
+  --color-severity-high: #F0883E;
+  --color-severity-medium: #E3B341;
+  --color-severity-low: #8B96A8;
+  --color-severity-info: #6E7A8C;
 
   /* Typography */
-  --font-family-base: "Segoe UI", system-ui, sans-serif;
-  --font-family-monospace: Consolas, "Cascadia Mono", ui-monospace, monospace;
+  --font-family-base: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-family-monospace: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --font-size-base-100: 11px;                   /* column headings, in capitals */
   --font-size-base-200: 12px;
   --font-size-base-300: 14px;                   /* body text */
   --font-size-base-400: 16px;
   --font-size-base-500: 20px;
   --font-size-hero-700: 28px;
   --font-size-hero-800: 32px;
+  --line-height-base-100: 14px;
   --line-height-base-200: 16px;
   --line-height-base-300: 20px;
   --line-height-base-400: 22px;
@@ -57,6 +77,7 @@
   --line-height-hero-800: 40px;
   --font-weight-regular: 400;
   --font-weight-semibold: 600;
+  --letter-spacing-caps: 0.06em;                /* for small text in capitals */
 
   /* Spacing */
   --spacing-xxs: 2px;
@@ -67,32 +88,41 @@
   --spacing-xl: 20px;
   --spacing-xxl: 24px;
   --spacing-xxxl: 32px;
+  --spacing-xxxxl: 48px;
 
   /* Corners and lines */
-  --border-radius-small: 2px;
-  --border-radius-medium: 4px;
+  --border-radius-small: 4px;                   /* badges */
+  --border-radius-medium: 6px;                  /* buttons, filters, commands */
   --border-radius-large: 8px;                   /* cards and panels */
   --border-radius-circular: 10000px;
   --stroke-width-thin: 1px;
   --stroke-width-thick: 2px;
+  --stroke-width-accent: 3px;                   /* the coloured edge of the verdict */
 
   /* Sizes */
   --size-page-max: 1200px;
   --size-header: 56px;
-  --size-bar: 12px;
+  --size-icon: 16px;
+  --size-icon-large: 20px;
+  --size-dot: 8px;
+  --size-step: 24px;                            /* the numbers of "How to fix" */
+  --size-bar: 8px;
   --size-bar-label: 88px;
-  --size-bar-count: 40px;
+  --size-bar-count: 32px;
+  --size-side: 380px;                           /* the narrow column of a two-column page */
 }
 
 /* Large screens and projectors (1920 x 1080): larger text and a wider page. */
 @media (min-width: 1600px) {
   :root {
+    --font-size-base-100: 12px;
     --font-size-base-200: 14px;
     --font-size-base-300: 16px;
     --font-size-base-400: 18px;
     --font-size-base-500: 22px;
     --font-size-hero-700: 32px;
     --font-size-hero-800: 40px;
+    --line-height-base-100: 16px;
     --line-height-base-200: 20px;
     --line-height-base-300: 22px;
     --line-height-base-400: 24px;
@@ -101,5 +131,42 @@
     --line-height-hero-800: 48px;
     --size-page-max: 1440px;
     --size-bar-label: 104px;
+    --size-side: 440px;
+  }
+}
+
+/* Paper and "Save as PDF": light colours. */
+@media print {
+  :root {
+    color-scheme: light;
+    --color-neutral-background-1: #FFFFFF;
+    --color-neutral-background-1-hover: #FFFFFF;
+    --color-neutral-background-2: #FFFFFF;
+    --color-neutral-background-3: #F5F5F5;
+    --color-neutral-foreground-1: #1A1A1A;
+    --color-neutral-foreground-2: #555555;
+    --color-neutral-stroke-1: #D1D1D1;
+    --color-neutral-stroke-1-hover: #D1D1D1;
+    --color-neutral-stroke-2: #E0E0E0;
+    --color-brand-foreground-1: #0F6CBD;
+    --color-brand-foreground-1-hover: #0F6CBD;
+    --color-brand-background-2: #DCEBFA;
+    --color-block-foreground: #B10E1C;
+    --color-block-background: #FDF3F4;
+    --color-block-border: #EEACB2;
+    --color-warn-foreground: #835B00;
+    --color-warn-background: #FFF4CE;
+    --color-warn-border: #F2D276;
+    --color-ignore-foreground: #555555;
+    --color-ignore-background: #F5F5F5;
+    --color-ignore-border: #D1D1D1;
+    --color-pass-foreground: #0E700E;
+    --color-pass-background: #F1FAF1;
+    --color-pass-border: #9FD89F;
+    --color-severity-critical: #C50F1F;
+    --color-severity-high: #DA3B01;
+    --color-severity-medium: #A86E00;
+    --color-severity-low: #6B6B6B;
+    --color-severity-info: #8A8A8A;
   }
 }

@@ -1,6 +1,6 @@
 # The dashboard
 
-The dashboard shows a SecureGate report in your web browser: the totals, every finding, and how to fix each one. It is **read-only**: it reads the report file and never changes anything. It only ever shows **masked** values.
+The dashboard shows a SecureGate report in your web browser: the result, every finding, and how to fix each one. You can download the findings, or print the whole report or save it as a PDF. It is **read-only**: it reads the report file and never changes anything. It only ever shows **masked** values. It has a dark theme; printed pages are light.
 
 ## Run it
 
@@ -33,11 +33,11 @@ If the report is missing or broken, the dashboard says so and shows the exact co
 
 ## The pages
 
-**Overview** (`/`). Four cards: all findings, blocked, warnings and ignored; select a card to see those findings. One bar per severity shows how many findings have it. "About this scan" says when and where the scan ran, what was scanned (for example the whole Git history), the Gitleaks version and the policy file.
+**Overview** (`/`). At the top, the result in words: **BLOCKED** with the number of blocked findings, or **PASS**, and the exit code. Below it, four tiles: all findings, blocked, warnings and ignored; select a tile to see those findings. **Fix these first** lists the blocked findings, the most severe first, each with its masked value, file and line. One bar per severity shows how many findings have it. "About this scan" says when and where the scan ran, what was scanned (for example the whole Git history), the Gitleaks version and the policy file.
 
-**Findings** (`/findings`). A table with the decision, rule, file and line, masked value and reason. Blocked findings come first. The buttons above the table show one decision at a time; they change the address, for example to `/findings?decision=block`, so a filtered view can be bookmarked or shared. Select a row to open its details.
+**Findings** (`/findings`). A table with the decision, severity, rule, file and line, masked value and reason. Blocked findings come first. The buttons above the table show one decision at a time; they change the address, for example to `/findings?decision=block`, so a filtered view can be bookmarked or shared. Select a row to open its details.
 
-**Finding detail** (`/findings/<id>`). Every field of the finding, plus **How to fix**:
+**Finding detail** (`/findings/<id>`). **How to fix**, in numbered steps, next to the main facts at a glance (decision, severity, policy rule, confidence, commit and author), then every field of the finding:
 
 - for a blocked key: revoke it at the provider, create a new one, store it in a secret manager, then remove it from the code;
 - for a warning or an ignored finding: why it was not blocked, and what to do if it turns out to be real.
@@ -46,18 +46,42 @@ If the same secret was found in several places, every place is listed. An id tha
 
 Example: `/findings/dcc7b5bbfe3c` is the Stripe key from the demo's deleted script. It shows `sk_l****562d`, a BLOCK badge and four steps, starting with "Revoke it at the provider. In the Stripe Dashboard, open Developers > API keys and roll this key".
 
+**Report** (`/report`). The whole report on one page: the result, the scan's details, the totals, and every finding with how to fix it. It is made for printing: see below.
+
+## Download the findings
+
+The buttons at the top of the Overview and Findings pages download what SecureGate found:
+
+| Button | File | What it is |
+|---|---|---|
+| CSV | `findings-demo.csv` | One row per finding, for Excel or another spreadsheet: decision, severity, rule, file, line, masked value, policy rule, reason, fix, commit, author, date, confidence, entropy, detector, id and fingerprint. |
+| JSON | `findings-demo.json` | The same findings as a SecureGate report, for other programs. The dashboard and `securegate summary` can open it too. |
+| Markdown summary | `findings-demo-summary.md` | The short summary that the merge gate shows on GitHub: the blocked findings and warnings, with why and how to fix. Paste it into a ticket or a pull request. |
+| Printable report | | Opens the Report page. |
+
+On the Findings page, CSV and JSON download only the findings shown: with the filter set to Block, you get `findings-demo-block.csv` with the blocked findings only. The file names come from the report's name.
+
+Every download holds masked values only: the files are made from the same checked report that the pages show, so a report with an unmasked value is never downloaded. In the CSV file, a value that starts with `=`, `+`, `-` or `@`, such as the masked private key `----****----`, gets an apostrophe in front, `'----****----`, so that a spreadsheet shows it as text and never runs it as a formula.
+
+## Print it, or save it as a PDF
+
+Open the **Report** page and press **Ctrl+P**. Choose your printer, or **Save as PDF** to get a PDF file. Printed pages are light: white paper, dark text, and the same coloured badges. The menus and buttons are left out, and a finding is never split across two pages when it fits on one. The other pages print the same way.
+
 ## Change colours, fonts and spacing
 
-Every design value lives in one file: `src/securegate/ui/static/css/tokens.css`. Change a value there and reload the page.
+Every design value lives in one file: `src/securegate/ui/static/css/tokens.css`. Change a value there and reload the page. The first block holds the dark theme for the screen; the block starting `@media print` holds the light colours for paper and PDFs.
 
 | To change | Edit these tokens |
 |---|---|
 | page, card, border and text colours | `--color-neutral-...` |
 | the accent: links, bars, the active tab | `--color-brand-...` |
 | the BLOCK, WARN and IGNORE badges | `--color-block-...`, `--color-warn-...`, `--color-ignore-...` |
+| the PASS result | `--color-pass-...` |
+| the coloured dots of the severities | `--color-severity-...` |
 | fonts and text sizes | `--font-...` and `--line-height-...` |
 | spacing | `--spacing-...` |
 | rounded corners | `--border-radius-...` |
+| the colours of printed pages and PDFs | the block starting `@media print` |
 | text size and page width on big screens and projectors | the block starting `@media (min-width: 1600px)` |
 
 The names follow Fluent 2, so a Figma token such as `colorNeutralBackground1` becomes `--color-neutral-background-1`.
@@ -65,9 +89,9 @@ The names follow Fluent 2, so a Figma token such as `colorNeutralBackground1` be
 Two tests protect the design:
 
 - `app.css`, the layout file, may only use these tokens. A test fails if a colour, size or spacing value is written anywhere else.
-- Text colours must meet WCAG AA contrast (at least 4.5 to 1) against their backgrounds. After changing a colour, run `make check` to see whether it still passes.
+- Text colours must meet WCAG AA contrast (at least 4.5 to 1) against their backgrounds, on screen and on paper; the bars and coloured dots need at least 3 to 1. After changing a colour, run `make check` to see whether it still passes.
 
-A decision is never shown by colour alone: it always has a BLOCK, WARN or IGNORE badge.
+A decision is never shown by colour alone: it always has a BLOCK, WARN or IGNORE badge. A severity always has its name next to its dot.
 
 ## A sample report for the designers
 

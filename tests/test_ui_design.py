@@ -1,5 +1,6 @@
 """Design rules the designers rely on: every colour, font size, spacing value and radius lives
-in tokens.css, the required values are there, and text meets WCAG AA contrast."""
+in tokens.css, the required values are there, and text meets WCAG AA contrast, both in the dark
+theme on screen and in the light theme used for printing."""
 
 import re
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 import pytest
 
 import securegate.ui
+from helpers import REPO_ROOT
 
 CSS_DIR = Path(securegate.ui.__file__).parent / "static" / "css"
 TOKENS = (CSS_DIR / "tokens.css").read_text(encoding="utf-8")
@@ -35,6 +37,20 @@ def base_tokens() -> dict[str, str]:
     block = re.search(r":root\s*{(.*?)}", without_comments(TOKENS), flags=re.DOTALL)
     assert block is not None
     return dict(re.findall(r"(--[\w-]+)\s*:\s*([^;]+);", block.group(1)))
+
+
+def print_overrides() -> dict[str, str]:
+    """The tokens that the @media print block changes for paper and PDFs."""
+    block = re.search(
+        r"@media print\s*{\s*:root\s*{(.*?)}", without_comments(TOKENS), flags=re.DOTALL
+    )
+    assert block is not None
+    return dict(re.findall(r"(--[\w-]+)\s*:\s*([^;]+);", block.group(1)))
+
+
+def print_tokens() -> dict[str, str]:
+    """The theme for paper and PDFs: the base tokens, changed by the @media print block."""
+    return {**base_tokens(), **print_overrides()}
 
 
 # --- app.css only uses tokens -------------------------------------------------------------
@@ -70,15 +86,15 @@ def test_every_variable_used_is_defined() -> None:
 @pytest.mark.parametrize(
     ("token", "value"),
     [
-        ("--color-neutral-background-2", "#FAFAFA"),  # page
-        ("--color-neutral-background-1", "#FFFFFF"),  # cards
-        ("--color-neutral-stroke-1", "#E0E0E0"),  # 1px borders
+        ("--color-neutral-background-2", "#0B0E14"),  # page: dark slate
+        ("--color-neutral-background-1", "#12161F"),  # cards
+        ("--color-neutral-stroke-1", "#232A36"),  # 1px borders
         ("--stroke-width-thin", "1px"),
         ("--border-radius-large", "8px"),
-        ("--color-neutral-foreground-1", "#242424"),  # text
-        ("--color-neutral-foreground-2", "#616161"),  # secondary text
-        ("--color-brand-foreground-1", "#0F6CBD"),  # the one accent
-        ("--font-family-base", '"Segoe UI", system-ui, sans-serif'),
+        ("--color-neutral-foreground-1", "#E6EAF0"),  # text
+        ("--color-neutral-foreground-2", "#9BA5B4"),  # secondary text
+        ("--color-brand-foreground-1", "#5AB0FF"),  # the one accent
+        ("--font-family-base", '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif'),
         ("--font-size-base-300", "14px"),  # base size
     ],
 )
@@ -88,6 +104,13 @@ def test_design_brief_values(token: str, value: str) -> None:
 
 def test_no_gradients_anywhere() -> None:
     assert "gradient(" not in APP_CSS + TOKENS
+
+
+def test_the_screen_is_dark_and_paper_is_light() -> None:
+    screen, paper = base_tokens(), print_tokens()
+    page, text = "--color-neutral-background-2", "--color-neutral-foreground-1"
+    assert luminance(screen[page]) < luminance(screen[text])  # light text on a dark page
+    assert luminance(paper[page]) > luminance(paper[text])  # dark text on white paper
 
 
 # --- contrast (WCAG 2.x) --------------------------------------------------------------------
@@ -117,14 +140,41 @@ TEXT_PAIRS = [
     ("--color-brand-foreground-1", "--color-neutral-background-2"),
     ("--color-brand-foreground-1", "--color-brand-background-2"),
     ("--color-brand-foreground-1-hover", "--color-neutral-background-1"),
+    ("--color-brand-foreground-1", "--color-neutral-background-3"),
     ("--color-block-foreground", "--color-block-background"),
     ("--color-warn-foreground", "--color-warn-background"),
     ("--color-ignore-foreground", "--color-ignore-background"),
+    ("--color-pass-foreground", "--color-pass-background"),
+    ("--color-neutral-foreground-1", "--color-block-background"),  # the verdict's sentence
+    ("--color-neutral-foreground-2", "--color-block-background"),  # its exit code
+    ("--color-neutral-foreground-1", "--color-pass-background"),
+    ("--color-neutral-foreground-2", "--color-pass-background"),
+    ("--color-neutral-foreground-1", "--color-warn-background"),  # a notice
 ]
-NON_TEXT_PAIRS = [  # focus outline and bars: WCAG asks 3:1 for these
+NON_TEXT_PAIRS = [  # focus outline, bars and dots: WCAG asks 3:1 for these
     ("--color-stroke-focus", "--color-neutral-background-1"),
     ("--color-stroke-focus", "--color-neutral-background-2"),
-    ("--color-brand-foreground-1", "--color-neutral-background-3"),
+    ("--color-brand-foreground-1", "--color-brand-background-2"),  # a bar on its track
+    ("--color-severity-critical", "--color-neutral-background-1"),
+    ("--color-severity-high", "--color-neutral-background-1"),
+    ("--color-severity-medium", "--color-neutral-background-1"),
+    ("--color-severity-low", "--color-neutral-background-1"),
+    ("--color-severity-info", "--color-neutral-background-1"),
+    ("--color-block-foreground", "--color-neutral-background-1"),  # decision dots
+    ("--color-warn-foreground", "--color-neutral-background-1"),
+    ("--color-ignore-foreground", "--color-neutral-background-1"),
+]
+PRINT_TEXT_PAIRS = [
+    ("--color-neutral-foreground-1", "--color-neutral-background-1"),
+    ("--color-neutral-foreground-2", "--color-neutral-background-1"),
+    ("--color-neutral-foreground-2", "--color-neutral-background-3"),
+    ("--color-brand-foreground-1", "--color-neutral-background-1"),
+    ("--color-block-foreground", "--color-block-background"),
+    ("--color-warn-foreground", "--color-warn-background"),
+    ("--color-ignore-foreground", "--color-ignore-background"),
+    ("--color-pass-foreground", "--color-pass-background"),
+    ("--color-neutral-foreground-1", "--color-block-background"),
+    ("--color-neutral-foreground-2", "--color-block-background"),
 ]
 
 
@@ -135,6 +185,24 @@ def test_text_meets_wcag_aa(foreground: str, background: str) -> None:
 
 
 @pytest.mark.parametrize(("foreground", "background"), NON_TEXT_PAIRS)
-def test_focus_and_bars_meet_wcag_non_text_contrast(foreground: str, background: str) -> None:
+def test_focus_bars_and_dots_meet_wcag_non_text_contrast(foreground: str, background: str) -> None:
     tokens = base_tokens()
     assert contrast(tokens[foreground], tokens[background]) >= 3.0
+
+
+@pytest.mark.parametrize(("foreground", "background"), PRINT_TEXT_PAIRS)
+def test_printed_text_meets_wcag_aa(foreground: str, background: str) -> None:
+    tokens = print_tokens()
+    assert contrast(tokens[foreground], tokens[background]) >= 4.5
+
+
+def test_printing_only_changes_tokens_that_exist() -> None:
+    assert sorted(set(print_overrides()) - set(base_tokens())) == []
+
+
+def test_the_docs_pdfs_print_in_light_colours() -> None:
+    """make docs-pdf styles the PDFs with these tokens: every colour it uses has a print value."""
+    docs_css = (REPO_ROOT / "tools" / "docs_pdf.css").read_text(encoding="utf-8")
+    used = set(re.findall(r"var\((--color[\w-]+)\)", docs_css))
+    assert used
+    assert sorted(used - set(print_overrides())) == []

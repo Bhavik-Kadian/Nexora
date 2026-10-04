@@ -99,7 +99,7 @@ The first scan creates a `.securegate` folder holding a private key for fingerpr
 make ui
 ```
 
-This opens the dashboard on the demo scan at `http://127.0.0.1:5000`, a page only your own computer can open. Select a finding to see how to fix it. Press Ctrl+C in PowerShell to stop the dashboard. For your own scan, use `.venv\Scripts\securegate ui --report findings.json --open`. More in [Dashboard](ui.md).
+This opens the dashboard on the demo scan at `http://127.0.0.1:5000`, a page only your own computer can open. Select a finding to see how to fix it. The buttons at the top download the findings as CSV (for Excel) or JSON, or open a report you can print or save as a PDF. Press Ctrl+C in PowerShell to stop the dashboard. For your own scan, use `.venv\Scripts\securegate ui --report findings.json --open`. More in [Dashboard](ui.md).
 
 ## 7. Check every commit before it is made (once)
 

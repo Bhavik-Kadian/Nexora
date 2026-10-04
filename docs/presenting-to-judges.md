@@ -108,7 +108,7 @@ It prints `securegate 0.1.0` and `gitleaks 8.30.1`. If it says `gitleaks not fou
 make check
 ```
 
-It takes under a minute and ends with a line like `477 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
+It takes under a minute and ends with a line like `540 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
 
 3. Turn on the laptop gate, for step 6:
 
@@ -289,11 +289,12 @@ and the dashboard opens in your browser. PowerShell stays busy while the dashboa
 
 Show, in this order:
 
-1. **Overview.** "Scan result: BLOCKED (exit code 1)". The cards: 11 findings, 6 blocked, 4 warnings, 1 ignored. The bars count the findings by severity. "About this scan" says what was scanned: the whole Git history, with Gitleaks 8.30.1 and `policy.yaml`.
-2. Select the **Blocked** card. The list now shows only the 6 blocked findings.
-3. Select the row `scripts/migrate_customers.py:3`, the deleted Stripe key. Its page shows `sk_l****562d` with a BLOCK badge, **How to fix** in four steps (starting with "Revoke it at the provider"), and every field: the commit that added the key, its author Riya Demo, the date, the fingerprint and the confidence score.
+1. **Overview.** The red bar at the top: "BLOCKED: 6 findings are blocked", and "exit code 1". The tiles: 11 findings, 6 blocked, 4 warnings, 1 ignored. **Fix these first** lists the 6 blocked findings, the critical ones first. The bars count the findings by severity. "About this scan" says what was scanned: the whole Git history, with Gitleaks 8.30.1 and `policy.yaml`.
+2. Select the **Blocked** tile. The list now shows only the 6 blocked findings.
+3. Select the row `scripts/migrate_customers.py:3`, the deleted Stripe key. Its page shows `sk_l****562d` with a BLOCK badge, **How to fix** in four numbered steps (starting with "Revoke it at the provider") next to the facts at a glance, and then every field: the commit that added the key, its author Riya Demo, the date, the fingerprint and the confidence score.
+4. If there is time, select **Report** at the top: the whole report on one page. Press Ctrl+P to show that it prints, light, or saves as a PDF. The **CSV** button downloads the findings for Excel.
 
-> The dashboard is read-only and runs only on this laptop: 127.0.0.1 means "this computer", so nobody else on the network can open it. It needs no internet, and its pages contain no JavaScript. It checks every value again before showing it: a report that holds an unmasked value is refused, never shown.
+> The dashboard is read-only and runs only on this laptop: 127.0.0.1 means "this computer", so nobody else on the network can open it. It needs no internet, and its pages contain no JavaScript. It checks every value again before showing it: a report that holds an unmasked value is refused, never shown, and never downloaded. The downloads and the printed report only ever hold masked values too.
 
 To stop the dashboard, click in PowerShell and press **Ctrl+C**. Tip: to keep it open for the rest of the demo, run `make ui` in a second PowerShell window instead. In SecureGate's menu, 3 opens the dashboard, and Enter in the menu's window closes it.
 
@@ -366,7 +367,7 @@ No internet? Show your screenshots, or `docs/pdf/merge-gate.pdf`, and make the s
 make test
 ```
 
-After about 40 seconds, the judges see the scorecard, and then the last line: `477 passed, 1 skipped`.
+After about 45 seconds, the judges see the scorecard, and then the last line: `540 passed, 1 skipped`.
 
 ```
 repo mode, seed 42
@@ -428,7 +429,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **Does it need the internet?** No. Scans, the dashboard and the laptop gate work offline. Only the merge gate needs GitHub.
 
-**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 478 automatic tests.
+**What is it built with?** Python 3.12, Gitleaks 8.30.1, Flask for the dashboard, pre-commit for the laptop gate and GitHub Actions for the merge gate, with 541 automatic tests.
 
 ## If something goes wrong
 

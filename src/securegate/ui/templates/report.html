@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, severity, verdict %}
+{% from "_icons.html" import icon %}
+{% block title %}Report{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div class="page-heading__text">
+    <h1>Scan report</h1>
+    <p class="lede">The whole report on one page: the result, every finding and how to fix it.</p>
+  </div>
+  <p class="print-hint">{{ icon("report") }}To save it as a PDF, press <kbd>Ctrl</kbd> + <kbd>P</kbd> and choose <strong>Save as PDF</strong>.</p>
+</div>
+
+{{ verdict(report) }}
+
+<div class="columns columns--even">
+  <section class="panel" aria-labelledby="scan-heading">
+    <h2 id="scan-heading">About this scan</h2>
+    <dl class="facts">
+      <dt>When</dt>
+      <dd>{% if report.scanned_at %}<time datetime="{{ report.scanned_at | iso_time }}">{{ report.scanned_at | local_time }}</time> <span class="secondary">(your time)</span>{% else %}Unknown{% endif %}</dd>
+      <dt>Where</dt>
+      <dd><code>{{ report.target }}</code></dd>
+      <dt>What</dt>
+      <dd>{{ report.mode_description }}{% if report.log_range %} <code>{{ report.log_range }}</code>{% endif %}</dd>
+      <dt>Scanner</dt>
+      <dd>Gitleaks {{ report.scanner_version or "(version unknown)" }}</dd>
+      <dt>Policy</dt>
+      <dd><code>{{ report.policy }}</code></dd>
+      <dt>Report file</dt>
+      <dd><code>{{ report_path }}</code></dd>
+    </dl>
+  </section>
+
+  <section class="panel" aria-labelledby="totals-heading">
+    <h2 id="totals-heading">Totals</h2>
+    <table class="table table--compact">
+      <caption class="visually-hidden">Findings by decision and by severity</caption>
+      <tbody>
+        <tr><th scope="row">Findings</th><td class="number">{{ report.count() }}</td></tr>
+        {% for decision in ["block", "warn", "ignore"] %}
+        <tr><th scope="row">{{ badge(decision) }}</th><td class="number">{{ report.count(decision) }}</td></tr>
+        {% endfor %}
+        {% for name, count in report.severity_counts() %}
+        <tr><th scope="row">{{ severity(name) }}</th><td class="number">{{ count }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+
+<section aria-labelledby="all-heading">
+  <h2 id="all-heading" class="section-heading">{{ items | length }} {{ "finding" if items | length == 1 else "findings" }}, blocked first</h2>
+  {% for f, fix in items %}
+  <article class="panel report-finding" aria-labelledby="finding-{{ loop.index }}">
+    <h3 id="finding-{{ loop.index }}" class="report-finding__title">{{ badge(f.decision) }} <code class="value">{{ f.masked_value }}</code> <span class="report-finding__location">{{ f.location }}</span></h3>
+    <p class="report-finding__meta">{{ severity(f.severity) }} · {{ f.rule }}{% if f.commit %} · commit <code>{{ f.commit[:12] }}</code>{% endif %}{% if f.author %} · {{ f.author }}{% endif %} · id <code>{{ f.id }}</code></p>
+    <p class="reason">{% if f.policy_rule %}<span class="reason__rule">{{ f.policy_rule }}</span> <span class="reason__text">{{ f.reason_text }}</span>{% else %}{{ f.reason }}{% endif %}</p>
+    <p>{{ fix.summary }}</p>
+    <ol class="steps">
+      {% for step in fix.steps %}
+      <li>{{ step }}</li>
+      {% endfor %}
+    </ol>
+  </article>
+  {% else %}
+  <p class="panel empty">No findings: the scan found nothing to report.</p>
+  {% endfor %}
+</section>
+{% endblock %}

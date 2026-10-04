@@ -1,9 +1,10 @@
+{% from "_icons.html" import icon -%}
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light">
+  <meta name="color-scheme" content="dark">
   <title>{% block title %}{% endblock %} · SecureGate</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/tokens.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
@@ -12,21 +13,22 @@
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="app-header">
     <div class="container app-header__inner">
-      <a class="brand" href="/">SecureGate</a>
-      <nav aria-label="Main">
+      <a class="brand" href="/">{{ icon("lock", "brand__mark") }}SecureGate</a>
+      <nav class="nav" aria-label="Main">
         <ul class="nav__list">
           <li><a class="nav__link" href="/"{% if active == "overview" %} aria-current="page"{% endif %}>Overview</a></li>
           <li><a class="nav__link" href="/findings"{% if active == "findings" %} aria-current="page"{% endif %}>Findings</a></li>
+          <li><a class="nav__link" href="/report"{% if active == "report" %} aria-current="page"{% endif %}>Report</a></li>
         </ul>
       </nav>
-      <p class="app-header__note">Read-only · values are masked</p>
+      <p class="app-header__note"><code class="chip">{{ report_path.name }}</code> Read-only · values are masked</p>
     </div>
   </header>
   <main id="main" class="container main" tabindex="-1">
     {% block content %}{% endblock %}
   </main>
-  <footer class="container app-footer">
-    <p>SecureGate {{ version }} · report: <code>{{ report_path }}</code></p>
+  <footer class="app-footer">
+    <p class="container">SecureGate {{ version }} · report <code>{{ report_path }}</code> · read-only, every value masked</p>
   </footer>
 </body>
 </html>

@@ -2,8 +2,10 @@
 {% block title %}{{ problem.title }}{% endblock %}
 {% block content %}
 <div class="page-heading">
-  <h1>{{ problem.title }}</h1>
-  <p class="lede">{{ problem.detail }}</p>
+  <div class="page-heading__text">
+    <h1>{{ problem.title }}</h1>
+    <p class="lede">{{ problem.detail }}</p>
+  </div>
 </div>
 
 <section class="panel" aria-labelledby="create-heading">

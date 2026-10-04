@@ -24,8 +24,9 @@ compare masked values, counts or booleans instead.
 ## Commands
 - `make setup`; `make check` (lint + test, before every commit); `make test`; `make lint`
 - `make demo` + `make scan-demo`: demo repo in ../securegate-demo; exit 1 is expected there
-- `make ui`: read-only dashboard (127.0.0.1, masked values, no JavaScript; design values only in
-  src/securegate/ui/static/css/tokens.css). `make sample-report`: sample_findings.json
+- `make ui`: read-only dashboard (127.0.0.1, masked values, no JavaScript; dark, light in print;
+  design values only in src/securegate/ui/static/css/tokens.css). Downloads (CSV/JSON/Markdown)
+  and /report are built from the checked ReportView only. `make sample-report`: sample_findings.json
 - `make hooks`: laptop gate (pre-commit). Merge gate: .github/workflows/secret-gate.yml
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
 - `make menu` (`securegate menu`): the interactive menu in src/securegate/menu/ (art, colour only in

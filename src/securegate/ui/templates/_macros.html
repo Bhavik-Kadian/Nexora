@@ -1,4 +1,47 @@
+{% from "_icons.html" import icon %}
+
 {#- A decision is never shown by colour alone: the badge always says BLOCK, WARN or IGNORE. -#}
 {% macro badge(decision) -%}
 <span class="badge badge--{{ decision }}">{{ decision | upper }}</span>
+{%- endmacro %}
+
+{#- A severity: its name, with a coloured dot beside it (never colour alone). -#}
+{% macro severity(name) -%}
+<span class="severity severity--{{ name }}">{{ name }}</span>
+{%- endmacro %}
+
+{#- The scan's result, in words first: BLOCKED or PASS, then what it means. -#}
+{% macro verdict(report) -%}
+{%- set blocked = report.count("block") -%}
+{%- set warned = report.count("warn") -%}
+{%- if report.result == "BLOCKED" -%}
+<div class="verdict verdict--block">
+  {{ icon("shield-alert", "verdict__icon") }}
+  <p class="verdict__text"><strong class="verdict__result">BLOCKED</strong> {{ blocked }} {{ "finding is" if blocked == 1 else "findings are" }} blocked: fix {{ "it" if blocked == 1 else "them" }} before this change is merged.</p>
+  <p class="verdict__code">exit code {{ report.exit_code }}</p>
+</div>
+{%- elif report.result == "PASS" -%}
+<div class="verdict verdict--pass">
+  {{ icon("shield-check", "verdict__icon") }}
+  <p class="verdict__text"><strong class="verdict__result">PASS</strong> Nothing is blocked.{% if warned %} {{ warned }} {{ "warning is" if warned == 1 else "warnings are" }} still worth a look.{% endif %}</p>
+  <p class="verdict__code">exit code {{ report.exit_code }}</p>
+</div>
+{%- else -%}
+<div class="verdict">
+  {{ icon("info", "verdict__icon") }}
+  <p class="verdict__text"><strong class="verdict__result">{{ report.result }}</strong> This report does not say whether the scan passed.</p>
+</div>
+{%- endif -%}
+{%- endmacro %}
+
+{#- Downloads of what the page shows. CSV and JSON follow the decision filter; the Markdown
+    summary and the printable report always cover the whole report. -#}
+{% macro downloads(decision=none) -%}
+{%- set query = "?decision=" ~ decision if decision else "" -%}
+<div class="toolbar">
+  <a class="button" href="/export/findings.csv{{ query }}" download>{{ icon("download") }}<span class="visually-hidden">Download </span>CSV</a>
+  <a class="button" href="/export/findings.json{{ query }}" download>{{ icon("download") }}<span class="visually-hidden">Download </span>JSON</a>
+  <a class="button" href="/export/summary.md" download>{{ icon("download") }}<span class="visually-hidden">Download the </span>Markdown summary</a>
+  <a class="button" href="/report">{{ icon("report") }}Printable report</a>
+</div>
 {%- endmacro %}

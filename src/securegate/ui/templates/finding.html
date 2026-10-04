@@ -1,24 +1,47 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge %}
+{% from "_macros.html" import badge, severity %}
+{% from "_icons.html" import icon %}
 {% set first = places[0] %}
 {% block title %}Finding {{ first.id }}{% endblock %}
 {% block content %}
-<p class="breadcrumb"><a href="/findings">All findings</a></p>
+<nav class="breadcrumb" aria-label="Breadcrumb"><a href="/findings">{{ icon("arrow-left") }}All findings</a></nav>
 
 <div class="page-heading">
-  <h1><code>{{ first.masked_value }}</code> {{ badge(first.decision) }}</h1>
-  <p class="lede">{{ first.rule }} in <code>{{ first.location }}</code>{% if places | length > 1 %}, and in {{ places | length - 1 }} more {{ "place" if places | length == 2 else "places" }}: the same secret, found again{% endif %}</p>
+  <div class="page-heading__text">
+    <h1 class="finding-title"><code>{{ first.masked_value }}</code> {{ badge(first.decision) }}</h1>
+    <p class="lede">{{ first.rule }} in <code>{{ first.location }}</code>{% if places | length > 1 %}, and in {{ places | length - 1 }} more {{ "place" if places | length == 2 else "places" }}: the same secret, found again{% endif %}</p>
+  </div>
 </div>
 
-<section class="panel" aria-labelledby="fix-heading">
-  <h2 id="fix-heading">How to fix</h2>
-  <p>{{ fix.summary }}</p>
-  <ol class="steps">
-    {% for step in fix.steps %}
-    <li>{{ step }}</li>
-    {% endfor %}
-  </ol>
-</section>
+<div class="columns">
+  <section class="panel" aria-labelledby="fix-heading">
+    <h2 id="fix-heading">How to fix</h2>
+    <p>{{ fix.summary }}</p>
+    <ol class="steps">
+      {% for step in fix.steps %}
+      <li>{{ step }}</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="panel" aria-labelledby="glance-heading">
+    <h2 id="glance-heading">At a glance</h2>
+    <dl class="facts">
+      <dt>Decision</dt>
+      <dd>{{ badge(first.decision) }}</dd>
+      <dt>Severity</dt>
+      <dd>{{ severity(first.severity) }}</dd>
+      <dt>Policy rule</dt>
+      <dd>{% if first.policy_rule %}<code>{{ first.policy_rule }}</code>{% else %}<span class="secondary">Not recorded</span>{% endif %}</dd>
+      <dt>Confidence</dt>
+      <dd class="facts__meter"><meter class="meter" min="0" max="1" value="{{ first.confidence }}" aria-label="Confidence">{{ "%.2f" | format(first.confidence) }}</meter> {{ "%.2f" | format(first.confidence) }}</dd>
+      <dt>Commit</dt>
+      <dd>{% if first.commit %}<code>{{ first.commit[:12] }}</code>{% else %}<span class="secondary">Not recorded</span>{% endif %}</dd>
+      <dt>Author</dt>
+      <dd>{{ first.author or "Not recorded" }}</dd>
+    </dl>
+  </section>
+</div>
 
 {% for place in places %}
 <section class="panel" aria-labelledby="fields-heading-{{ loop.index }}">
@@ -32,6 +55,8 @@
         <td>
           {%- if field.key == "decision" -%}
             {{ badge(field.value) }}
+          {%- elif field.key == "severity" -%}
+            {{ severity(field.value) }}
           {%- elif field.value is none -%}
             <span class="secondary">Not recorded</span>
           {%- elif field.code -%}

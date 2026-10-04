@@ -10,7 +10,7 @@
 
 **Decoy**: something that looks like a secret but is not. Example: a 40-character commit hash, or a placeholder.
 
-**Design token**: a named design value, such as a colour or a spacing, kept in one place so the whole design can be changed there. Example: `--color-brand-foreground-1: #0F6CBD` in `tokens.css`.
+**Design token**: a named design value, such as a colour or a spacing, kept in one place so the whole design can be changed there. Example: `--color-brand-foreground-1: #5AB0FF` in `tokens.css`, the accent colour of the dashboard.
 
 **Entropy**: a score for how random a piece of text looks, in bits per character. Example: `aaaa` scores 0; a random key scores about 4 to 6. Scanners use it to tell keys from ordinary words.
 

@@ -34,7 +34,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `report.py` | Prints the table, the "why and fix" lines for blocked findings, and writes `findings.json`. |
 | `summary.py` | Turns `findings.json` into a short Markdown summary (`securegate summary`), used on GitHub's check page. |
 | `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. |
-| `ui/` | The read-only dashboard: `app.py` (the pages), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/`. |
+| `ui/` | The read-only dashboard: `app.py` (the pages and downloads), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `export.py` (the CSV and JSON downloads), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/` (a dark theme, light when printed). |
 | `menu/` | The menu that `Start SecureGate.cmd` and `make menu` open: `app.py` (the screen and the choices; each choice runs a `securegate` command and shows it first), `art.py` (the padlock and the big letters) and `terminal.py` (colours, only in a real terminal). |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
 
@@ -84,8 +84,9 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change how values are masked | `src/securegate/mask.py` |
 | change the table or `findings.json` | `src/securegate/report.py` |
 | change the confidence score | `src/securegate/confidence.py` |
-| change the dashboard's colours, fonts or spacing | `src/securegate/ui/static/css/tokens.css` (see [Dashboard](ui.md)) |
+| change the dashboard's colours, fonts or spacing, on screen or on paper | `src/securegate/ui/static/css/tokens.css` (see [Dashboard](ui.md)) |
 | change what a dashboard page shows | `src/securegate/ui/templates/` |
+| change the columns of the CSV download, or the JSON download | `src/securegate/ui/export.py` |
 | change the "How to fix" advice | `src/securegate/ui/fixes.py` |
 | change what the check on pull requests does | `.github/workflows/secret-gate.yml` (see [The two gates](merge-gate.md)) |
 | change the check before each commit | `.pre-commit-config.yaml` and `tools/precommit_hook.py` |

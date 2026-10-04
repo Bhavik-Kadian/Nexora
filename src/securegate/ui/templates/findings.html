@@ -1,17 +1,20 @@
 {% extends "base.html" %}
-{% from "_macros.html" import badge %}
+{% from "_macros.html" import badge, severity, downloads %}
 {% block title %}Findings{% endblock %}
 {% block content %}
 <div class="page-heading">
-  <h1>Findings</h1>
-  <p class="lede">Blocked findings come first, then warnings, then ignored ones. Open a row to see every detail and how to fix it.</p>
+  <div class="page-heading__text">
+    <h1>Findings</h1>
+    <p class="lede">Blocked findings come first, then warnings, then ignored ones. Open a row to see every detail and how to fix it.</p>
+  </div>
+  {{ downloads(decision) }}
 </div>
 
-<nav aria-label="Filter by decision">
+<nav class="filters" aria-label="Filter by decision">
   <ul class="filters__list">
     <li><a class="filters__link" href="/findings"{% if decision is none %} aria-current="page"{% endif %}>All <span class="filters__count">{{ report.count() }}</span></a></li>
     {% for value, label in [("block", "Block"), ("warn", "Warn"), ("ignore", "Ignore")] %}
-    <li><a class="filters__link" href="/findings?decision={{ value }}"{% if decision == value %} aria-current="page"{% endif %}>{{ label }} <span class="filters__count">{{ report.count(value) }}</span></a></li>
+    <li><a class="filters__link" href="/findings?decision={{ value }}"{% if decision == value %} aria-current="page"{% endif %}><span class="dot dot--{{ value }}" aria-hidden="true"></span>{{ label }} <span class="filters__count">{{ report.count(value) }}</span></a></li>
     {% endfor %}
   </ul>
 </nav>
@@ -27,6 +30,7 @@
     <thead>
       <tr>
         <th scope="col">Decision</th>
+        <th scope="col">Severity</th>
         <th scope="col">Rule</th>
         <th scope="col">File:line</th>
         <th scope="col">Masked value</th>
@@ -37,10 +41,11 @@
       {% for f in rows %}
       <tr>
         <td>{{ badge(f.decision) }}</td>
+        <td class="nowrap">{{ severity(f.severity) }}</td>
         <td class="nowrap">{{ f.rule }}</td>
         <td><a class="row-link" href="/findings/{{ f.id }}">{{ f.location }}</a></td>
-        <td class="nowrap"><code>{{ f.masked_value }}</code></td>
-        <td>{% if f.policy_rule %}<span class="reason__rule">{{ f.policy_rule }}</span> <span class="reason__text">{{ f.reason_text }}</span>{% else %}{{ f.reason }}{% endif %}</td>
+        <td class="nowrap"><code class="value">{{ f.masked_value }}</code></td>
+        <td class="reason">{% if f.policy_rule %}<span class="reason__rule">{{ f.policy_rule }}</span> <span class="reason__text">{{ f.reason_text }}</span>{% else %}{{ f.reason }}{% endif %}</td>
       </tr>
       {% endfor %}
     </tbody>

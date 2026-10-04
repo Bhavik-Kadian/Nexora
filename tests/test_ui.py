@@ -8,10 +8,11 @@ import pytest
 from flask.testing import FlaskClient
 
 from helpers import Page
+from securegate.finding import SEVERITIES
 from securegate.ui.app import create_app
 from securegate.ui.report_view import report_commands
 
-PAGES = ["/", "/findings", "/findings?decision=block", "/findings/0123456789ab"]
+PAGES = ["/", "/findings", "/findings?decision=block", "/findings/0123456789ab", "/report"]
 DECISION_ORDER = {"block": 0, "warn": 1, "ignore": 2}
 
 
@@ -81,6 +82,48 @@ def test_overview_says_when_and_where_the_scan_ran(client: FlaskClient) -> None:
     assert len(datetimes) == 1 and datetimes[0].endswith("Z")
 
 
+def test_overview_states_the_verdict_in_words(client: FlaskClient, sample_report: Path) -> None:
+    blocked = report_data(sample_report)["summary"]["block"]
+    text = Page(body(client.get("/"))).text
+    assert f"BLOCKED {blocked} findings are blocked: fix them" in text
+    assert "exit code 1" in text
+
+
+def test_fix_these_first_lists_blocked_findings_most_severe_first(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    blocked = [f for f in report_data(sample_report)["findings"] if f["decision"] == "block"]
+    blocked.sort(key=lambda f: (SEVERITIES.index(f["severity"]), f["file"], f["line"]))
+    page = Page(body(client.get("/")))
+    links = [a["href"] for a in page.all("a") if a.get("class") == "list__link"]
+    assert links == [f"/findings/{f['id']}" for f in blocked[:6]]
+
+
+def test_a_scan_with_nothing_blocked_says_pass(tmp_path: Path, sample_report: Path) -> None:
+    data = report_data(sample_report)
+    data["findings"] = [f for f in data["findings"] if f["decision"] != "block"]
+    data["status"], data["exit_code"] = "pass", 0
+    report = tmp_path / "findings.json"
+    report.write_text(json.dumps(data), encoding="utf-8")
+    text = Page(body(create_app(report).test_client().get("/"))).text
+
+    assert "PASS Nothing is blocked." in text
+    assert "warnings are still worth a look" in text
+    assert "exit code 0" in text
+
+
+@pytest.mark.parametrize("decision", ["block", "warn"])
+def test_download_buttons_follow_the_decision_filter(client: FlaskClient, decision: str) -> None:
+    page = Page(body(client.get(f"/findings?decision={decision}")))
+    buttons = [a["href"] for a in page.all("a") if a.get("class") == "button"]
+    assert buttons == [
+        f"/export/findings.csv?decision={decision}",
+        f"/export/findings.json?decision={decision}",
+        "/export/summary.md",
+        "/report",
+    ]
+
+
 # --- the findings list ---------------------------------------------------------------------
 
 
@@ -98,9 +141,9 @@ def test_findings_lists_every_finding_with_blocks_first(
 
 def test_findings_table_has_the_required_columns(client: FlaskClient) -> None:
     page = Page(body(client.get("/findings")))
-    headers = page.text.split("Decision Rule File:line Masked value Reason")
+    headers = page.text.split("Decision Severity Rule File:line Masked value Reason")
     assert len(headers) == 2
-    assert [th["scope"] for th in page.all("th")] == ["col"] * 5
+    assert [th["scope"] for th in page.all("th")] == ["col"] * 6
 
 
 @pytest.mark.parametrize("decision", ["block", "warn", "ignore"])
@@ -247,6 +290,29 @@ def test_404_page_escapes_what_was_typed(client: FlaskClient) -> None:
     response = client.get("/findings/<b>bold</b>")
     assert response.status_code == 404
     assert "<b>bold</b>" not in body(response)
+
+
+# --- the printable report -------------------------------------------------------------------
+
+
+def test_the_report_page_holds_every_finding_and_how_to_fix_it(
+    client: FlaskClient, sample_report: Path
+) -> None:
+    findings = report_data(sample_report)["findings"]
+    response = client.get("/report")
+    page = Page(body(response))
+    blocked = sum(f["decision"] == "block" for f in findings)
+
+    totals, shown = badges(page)[:3], badges(page)[3:]  # the totals, then one per finding
+
+    assert response.status_code == 200
+    assert len(page.all("article")) == len(findings)
+    assert totals == ["block", "warn", "ignore"]
+    assert len(shown) == len(findings)
+    assert shown == sorted(shown, key=DECISION_ORDER.__getitem__)  # blocked first
+    assert all(f["masked_value"] in page.text for f in findings)
+    assert page.text.count("Revoke it at the provider") == blocked
+    assert "press Ctrl + P and choose Save as PDF" in page.text
 
 
 # --- no usable report: a friendly page ------------------------------------------------------
