@@ -28,11 +28,13 @@
 
 **Hardcoded**: written directly into the code, instead of being loaded from a safe place when the program runs. Example: a Stripe key typed into a Python file.
 
+**Live check (validity)**: asking the provider whether a found key still works. TruffleHog can do it for the services it knows. Example: `verified` means the provider confirmed the key is live; SecureGate then always blocks it (rule 1).
+
 **Masking**: hiding most of a value before showing it. SecureGate keeps the first 4 and last 4 characters of values with 16 or more characters, like `sk_l****562d`. Shorter values become `****`.
 
 **Placeholder**: a made-up stand-in value. Example: `YOUR_API_KEY_HERE` or `changeme`.
 
-**Policy**: the rules in `policy.yaml` that decide block, warn or ignore for each finding.
+**Policy**: the numbered rules in `policy.yaml` that decide block, warn or ignore for each finding. Example: `rule 8: provider-keys` blocks live payment, cloud and GitHub keys.
 
 **Pre-commit**: the moment just before a change is saved as a commit. A pre-commit check can stop a secret before it ever enters the history. Example: after `make hooks`, every commit first runs `securegate scan . --mode staged`, which checks exactly the changes about to be committed.
 
@@ -47,5 +49,7 @@
 **Secret**: a password, key or token that gives access to something: money, data, servers or code. Example: a Stripe live key lets you take card payments.
 
 **Status check**: a test that GitHub runs on a pull request and shows as a green tick or a red cross. A ruleset can make it required. Example: `secret-gate`.
+
+**TruffleHog**: a free, open-source scanner that finds secrets in Git history, like Gitleaks, and can also ask the provider whether a key still works. SecureGate runs it with `--scanners all`.
 
 **Workflow**: a list of steps that GitHub Actions runs on GitHub's own computers when something happens, such as a new pull request. Example: `.github/workflows/secret-gate.yml`.

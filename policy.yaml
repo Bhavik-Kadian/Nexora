@@ -1,8 +1,10 @@
-# SecureGate policy: decides what happens to each possible secret the scanner finds.
+# SecureGate policy: decides what happens to each possible secret the scanners find.
 #
 # HOW IT WORKS
 #   Rules are checked from top to bottom. The FIRST rule that matches decides.
 #   Each rule has:
+#     number       the rule's number in SecureGate's policy table; reports show "rule 8: name"
+#                  (numbers go up from top to bottom; gaps are fine)
 #     name         a short label, shown in reports
 #     when         the conditions; leave `when` out to match everything
 #     decision     block  = stop the change (SecureGate exits with code 1)
@@ -16,18 +18,38 @@
 #   All conditions under `when` must be true. Inside one list, one match is enough.
 #   value_matches  regular expressions checked against the secret value itself. They run in
 #                  memory before masking; the value is never stored. Start a pattern with (?i)
-#                  to ignore upper/lower case.
+#                  to ignore upper/lower case, and with ^ to match the start of the value.
 #   path_matches   file path patterns: ** means any folders, * means any characters in one name.
-#   rule_ids       scanner rule names, such as aws-access-token (see .gitleaks.toml).
+#   rule_ids       scanner rule names: Gitleaks rules such as aws-access-token (see
+#                  .gitleaks.toml), trufflehog-<detector> such as trufflehog-stripe, Semgrep
+#                  rules such as securegate-secret-logged, and Bandit tests such as bandit-B105.
 #   min_entropy    matches when the value's randomness score is at least this number
 #                  (random keys score about 4 to 6, ordinary words about 2 to 3).
+#   validity       whether the key is live, as TruffleHog found out from the provider:
+#                  verified (it works right now), unknown (the check failed), unverified (not
+#                  confirmed) or not_checked.
+#
+# When several scanners find the same line, each finding is decided on its own and the
+# strongest decision wins (block, then warn, then ignore).
 #
 # The last rule must have no `when`, so that every finding gets a decision.
 
 version: 1
 
 rules:
-  - name: placeholders
+  - number: 1
+    name: verified-live
+    when:
+      validity: [verified]
+    decision: block
+    severity: critical
+    reason: TruffleHog asked the provider, and this key works right now.
+    remediation: >-
+      Revoke it at the provider immediately: anyone who can see this change can use it. Then
+      create a new key, store it in a secret manager and load it from an environment variable.
+
+  - number: 3
+    name: placeholders
     when:
       value_matches:
         - '(?i)your_\w*_here'   # YOUR_..._HERE
@@ -40,47 +62,81 @@ rules:
     reason: The value looks like a placeholder or a documentation example, not a real secret.
     remediation: No action needed.
 
-  - name: tests-fixtures-docs
+  - number: 7
+    name: tests-fixtures-docs
     when:
       path_matches:
         - '**/tests/**'
         - '**/fixtures/**'
         - '**/docs/**'
+        - '**/*.example'        # such as .env.example
+        - '**/*.md'
     decision: warn
-    severity: low
-    reason: Found in tests, fixtures or docs, where fake values are common.
+    severity: medium
+    reason: Found in tests, fixtures, docs, an example file or Markdown, where fake values are common.
     remediation: Make sure the value is fake. If it is real, rotate it and replace it with a fake.
 
-  - name: provider-keys
+  - number: 8
+    name: provider-keys
     when:
-      rule_ids:
-        - acme-pay-token
-        - aws-access-token
-        - aws-amazon-bedrock-api-key-long-lived
-        - aws-amazon-bedrock-api-key-short-lived
-        - stripe-access-token
-        - private-key
+      value_matches:
+        - '^acme_live_'                                 # ACME Pay (SecureGate's demo provider)
+        - '^[sr]k_live_'                                # Stripe secret and restricted keys
+        - '^(?:AKIA|ASIA|ABIA|ACCA|A3T[A-Z0-9])[A-Z2-7]{16}$'  # AWS access key ids
+        - '^ABSK[A-Za-z0-9+/]{20,}'                     # Amazon Bedrock API keys
+        - '^bedrock-api-key-'
+        - '^gh[pousr]_'                                 # GitHub tokens
+        - '^github_pat_'
+        - '-{5}BEGIN[A-Z0-9 _-]*PRIVATE KEY'            # private keys
     decision: block
-    severity: critical
+    severity: high
     reason: A payment, cloud or private key gives direct access to money, data or servers.
     remediation: >-
       Treat it as leaked. Rotate (replace) the key at the provider now, remove it from the
       code, and load it from an environment variable or a secrets manager instead.
 
-  - name: github-tokens
+  - number: 9
+    name: test-mode-keys
+    when:
+      value_matches:
+        - '^acme_test_'
+        - '^[sr]k_test_'
+    decision: warn
+    severity: medium
+    reason: A test-mode key cannot move real money, but it still belongs in a secret manager.
+    remediation: Load it from an environment variable or a secret manager instead of the code.
+
+  - number: 10
+    name: hardcoded-passwords
     when:
       rule_ids:
-        - github-pat
-        - github-fine-grained-pat
-        - github-oauth
-        - github-app-token
-        - github-refresh-token
-    decision: block
-    severity: high
-    reason: A GitHub token gives access to source code and can change it.
-    remediation: Revoke the token in GitHub settings, create a new one, and keep it out of the code.
+        - generic-api-key       # Gitleaks: a word like key, token or password next to a value
+        - bandit-B105           # Bandit: hardcoded password string
+        - bandit-B106           # Bandit: hardcoded password passed to a function
+        - bandit-B107           # Bandit: hardcoded password as a default argument
+    decision: warn
+    severity: medium
+    reason: A password or credential is written in the code, next to its name.
+    remediation: Load it from an environment variable or a secret manager. If it is real, change it.
 
-  - name: everything-else
+  - number: 13
+    name: risky-handling
+    when:
+      rule_ids:
+        - securegate-secret-logged    # Semgrep: a secret is printed or logged
+        - securegate-secret-in-url    # Semgrep: a secret is put into a URL
+        - securegate-getenv-default   # Semgrep: a secret falls back to a value in the code
+    decision: warn
+    severity: low
+    reason: >-
+      The code handles a secret in a risky way: it prints or logs it, puts it in a URL, or
+      falls back to a value written in the code.
+    remediation: >-
+      Never print or log secrets, send them in a header instead of a URL, and stop with an error
+      when the environment variable is missing instead of using a default.
+
+  - number: 14
+    name: everything-else
     decision: warn
     severity: medium
     reason: A possible secret that no more specific rule covers.

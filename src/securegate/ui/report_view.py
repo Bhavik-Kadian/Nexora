@@ -14,9 +14,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from securegate.finding import DECISIONS, SEVERITIES
+from securegate.finding import DECISIONS, SEVERITIES, VALIDITIES
 
 SCHEMA_VERSION = 1
+# How the dashboard and the reports say what TruffleHog's live check found.
+LIVE_CHECK = {
+    "verified": "Live: the provider confirmed it works",
+    "unknown": "Unknown: the live check failed",
+    "unverified": "Not confirmed live",
+    "not_checked": "Not checked",
+}
 MASKED_VALUE = re.compile(r"\*{4}|[ -~]{4}\*{4}[ -~]{4}")  # what mask.mask_value() produces
 FINDING_ID = re.compile(r"[0-9a-f]{12}")
 DECISION_ORDER = {decision: position for position, decision in enumerate(DECISIONS)}
@@ -73,10 +80,22 @@ class FindingView:
     decision: str
     reason: str
     remediation: str
+    detectors: tuple[str, ...] = ()  # empty in reports from before Layer 2
+    validity: str = "not_checked"
+    matched_rule: str = ""  # "rule 8: provider-keys"; empty in reports from before Layer 2
 
     @property
     def location(self) -> str:
         return f"{self.file}:{self.line}"
+
+    @property
+    def found_by(self) -> tuple[str, ...]:
+        """Every scanner that found it, such as ("gitleaks", "trufflehog")."""
+        return self.detectors or (self.detector,)
+
+    @property
+    def live_check(self) -> str:
+        return LIVE_CHECK.get(self.validity, self.validity)
 
     @property
     def policy_rule(self) -> str:
@@ -95,6 +114,7 @@ class FindingView:
             Field("Id", "id", self.id, code=True),
             Field("Rule", "rule", self.rule, code=True),
             Field("Detector", "detector", self.detector),
+            Field("Found by", "detectors", ", ".join(self.found_by)),
             Field("File", "file", self.file, code=True),
             Field("Line", "line", str(self.line)),
             Field("Commit", "commit", self.commit, code=True),
@@ -104,8 +124,10 @@ class FindingView:
             Field("Fingerprint", "fingerprint", self.fingerprint, code=True),
             Field("Entropy", "entropy", f"{self.entropy:.3f} bits per character"),
             Field("Confidence", "confidence", f"{self.confidence:.2f} (0 to 1)"),
+            Field("Live check", "validity", self.live_check),
             Field("Severity", "severity", self.severity),
             Field("Decision", "decision", self.decision),
+            Field("Policy rule", "matched_rule", self.matched_rule or None, code=True),
             Field("Reason", "reason", self.reason),
             Field("Remediation", "remediation", self.remediation),
         ]
@@ -246,6 +268,15 @@ def _finding(item: object, number: int) -> FindingView:
             f"{where} holds a value that is not masked, so the dashboard will not show this "
             "report. Scan again to write a new one."
         )
+    detectors = item.get("detectors", [])
+    if not isinstance(detectors, list) or not all(isinstance(d, str) and d for d in detectors):
+        raise _Unusable(f"{where} has an unexpected 'detectors'.")
+    validity = item.get("validity", "not_checked")
+    if validity not in VALIDITIES:
+        raise _Unusable(f"{where} has an unknown 'validity'.")
+    matched_rule = item.get("matched_rule", "")
+    if not isinstance(matched_rule, str):
+        raise _Unusable(f"{where} has an unexpected 'matched_rule'.")
     return FindingView(
         id=item["id"],
         rule=item["rule"],
@@ -263,6 +294,9 @@ def _finding(item: object, number: int) -> FindingView:
         decision=item["decision"],
         reason=item["reason"],
         remediation=item["remediation"],
+        detectors=tuple(detectors),
+        validity=validity,
+        matched_rule=matched_rule,
     )
 
 

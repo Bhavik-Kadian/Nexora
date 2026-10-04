@@ -420,3 +420,38 @@ After each one: run `make check`, show you the output, wait. When you approve, I
 3. `securegate scan . --mode repo` in this repo exits 0 (after the milestone commits).
 4. A fresh clone into a scratch folder, following docs/getting-started.md word for word, reaches a first scan.
 5. The self-scan test proves no key-shaped strings in our own files.
+
+---
+
+# Layer 2: the merge gate (four scanners, one verdict)
+
+> Approved on 2026-10-04. Answers: create the GitHub repo with gh (ask first), install Semgrep and Bandit into .venv and TruffleHog with `make scanners`, gh via winget, commit the open dashboard work first, and keep installing SecureGate and its rules from the base branch in the workflow.
+
+Every pull request to main is scanned on GitHub by Gitleaks, TruffleHog, Semgrep and Bandit. Their findings merge into one verdict decided by `policy.yaml`; the pull request gets a comment, a SARIF upload and a job summary, and a red check locks the merge button.
+
+**Rollout in two pull requests**, because the workflow installs SecureGate from the base branch (a pull request cannot change the code that judges it):
+- PR A: the engine (milestones 1 to 3), judged by the Gitleaks-only gate already on main.
+- PR B: the new workflow (milestone 4), judged by Layer 2 code from main, so it passes its own four-scanner gate.
+- PR C: the demo kit and docs (milestones 5 and 6).
+
+**Milestones**, each ending with `make check`, a stop for review, and one commit:
+1. TruffleHog adapter, merge logic, policy rules (rule numbers, `validity`)
+2. Semgrep and Bandit adapters, `rules/securegate-risky.yml`
+3. Outputs: PR comment, SARIF 2.1.0, job summary
+4. The workflow `.github/workflows/secret-gate.yml`
+5. Demo kit (`demo-pr`, `demo-cleanup`, `doctor`, `ci-report`)
+6. Docs (`merge-gate.md`, `demo-script.md`, `limitations.md`, CODEOWNERS)
+
+**Policy table rules in this layer** (first match wins): 1 verified-live (block, critical), 3 placeholders (ignore), 7 tests-fixtures-docs incl. `*.md` and `*.example` (warn, medium), 8 provider-keys by value format (block, high), 9 test-mode-keys (warn, medium), 10 hardcoded-passwords (warn, medium), 13 risky-handling (warn, low), 14 everything-else (warn, medium). Rules 2, 4, 5, 6, 11 and 12 come in later sessions.
+
+## TruffleHog 3.97.9 facts I verified (milestone 1)
+
+From `trufflehog --help`, `trufflehog git --help` and real runs on a throwaway repository:
+- **Installed** from the GitHub release `trufflehog_3.97.9_windows_amd64.tar.gz`, checked against `trufflehog_3.97.9_checksums.txt` (SHA-256 `d8a2807f...7f93f`, pinned in the workflow). No winget package exists.
+- **Switches are printed as `--[no-]json`** by kingpin, so the flag probe accepts that spelling.
+- **Flags used:** `git <uri> --since-commit <base> --branch <head> --json --no-update --no-ignore-tag --fail-on-scan-errors --results=verified,unknown,unverified [--no-verification] [--config .trufflehog.yaml]`. Never `--fail` (exit 183 on findings).
+- **`--version`** and **`--help`** print to stdout with exit code 0. An unknown flag gives exit code 1.
+- **Windows:** `file://C:/Users/...` works. TruffleHog clones the repository into a temporary folder first; the clone contains a base commit that main has moved past, so ranges whose base is not an ancestor work.
+- **Output:** one JSON object per line on stdout; logs are JSON lines on stderr (`--log-level=-1` silences them). Fields: `SourceMetadata.Data.Git.{commit,file,email,repository,timestamp,line,repository_local_path}`, `DetectorType`, `DetectorName`, `DecoderName`, `Verified`, `VerificationFromCache`, `Raw`, `RawV2`, `Redacted`, `ExtraData`, `StructuredData`, `SecretParts`; `VerificationError` only when a check failed. A custom detector reports `DetectorName: "CustomRegex"` with its name in `ExtraData.name`.
+- **Errors:** with `--fail-on-scan-errors`, an unknown `--since-commit` ends with exit code 1 and an error-level log line.
+- **Timestamps** look like `2026-10-04 17:30:45 +0000`; `email` is `Name <address>`.

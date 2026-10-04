@@ -16,13 +16,18 @@ SecureGate asks **Gitleaks**, a free scanner, to read every commit. Gitleaks kno
 
 At this moment the full key exists only in SecureGate's memory. It is never printed or saved.
 
+With `--scanners all`, a second scanner, **TruffleHog**, reads the history too. It can also ask Stripe whether the key still works, which Gitleaks cannot. When both find the same key on the same line, SecureGate reports it once and names both.
+
 ## Step 2: Decide
 
-SecureGate checks the finding against the rules in `policy.yaml`, from top to bottom. The first rule that matches decides:
+SecureGate checks the finding against the rules in `policy.yaml`, from top to bottom. Each rule has its number from SecureGate's policy table. The first rule that matches decides:
 
-1. `placeholders`: is it an obvious fake, like `changeme`? No.
-2. `tests-fixtures-docs`: is it in a tests, fixtures or docs folder? No.
-3. `provider-keys`: is it an ACME, AWS or Stripe key, or a private key? **Yes, so: block.**
+1. Rule 1, `verified-live`: did the provider confirm that the key works right now? Only TruffleHog can ask; here nobody did.
+2. Rule 3, `placeholders`: is it an obvious fake, like `changeme`? No.
+3. Rule 7, `tests-fixtures-docs`: is it in tests, fixtures or docs, or in a Markdown or example file? No.
+4. Rule 8, `provider-keys`: does the value have the format of a live payment, cloud or GitHub key, or is it a private key? It starts with `sk_live_`: **yes, so: block.**
+
+The rules after it, for test-mode keys, passwords written in the code, risky handling of secrets and everything else, are never reached.
 
 ## Step 3: Report
 
@@ -62,7 +67,7 @@ The only real fix is **rotation**: create a new key at Stripe, switch the app to
 
 ```mermaid
 flowchart LR
-    A["Project and its Git history"] --> B["Find: Gitleaks spots key-shaped text"]
+    A["Project and its Git history"] --> B["Find: Gitleaks and TruffleHog spot key-shaped text"]
     B --> C["Decide: policy.yaml, first matching rule wins"]
     C -->|block| D["Exit code 1: stop"]
     C -->|warn| E["Reported, let through"]

@@ -11,6 +11,7 @@ from pathlib import Path
 from securegate import __version__
 from securegate.errors import ConfigError
 from securegate.finding import DECISIONS, Finding
+from securegate.scanners.common import ScannerRun
 
 SCHEMA_VERSION = 1
 COLUMNS = ("DECISION", "RULE", "FILE:LINE", "VALUE")
@@ -58,9 +59,11 @@ def envelope(
     scanner_version: str | None,
     findings: Sequence[Finding] | None = None,
     error: str | None = None,
+    scanner_runs: Sequence[ScannerRun] | None = None,
 ) -> dict[str, object]:
     """The findings.json content. An error report has no "findings" key, so nobody can
-    mistake a failed scan for a clean one."""
+    mistake a failed scan for a clean one. "scanner" names Gitleaks, as before; "scanners"
+    lists every scanner and how it fared."""
     data: dict[str, object] = {
         "tool": "securegate",
         "version": __version__,
@@ -74,6 +77,8 @@ def envelope(
         "scanner": {"name": "gitleaks", "version": scanner_version},
         "policy": policy_path,
     }
+    if scanner_runs is not None:
+        data["scanners"] = [run.to_dict() for run in scanner_runs]
     if error is not None or findings is None:
         data["error"] = error or "unknown error"
         return data

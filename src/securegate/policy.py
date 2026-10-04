@@ -3,22 +3,24 @@
 policy.yaml lists rules. They are checked top to bottom and the FIRST rule that matches decides.
 A rule matches when every condition under `when` is true (AND); inside one list, any single
 entry is enough (OR). A rule without `when` matches everything. The last rule must be like
-that, so every finding gets a decision.
+that, so every finding gets a decision. Rules may carry their `number` from SecureGate's policy
+table; reports then name them as "rule 8: provider-keys".
 """
 
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from itertools import pairwise
 from pathlib import Path
 
 from securegate.errors import ConfigError
-from securegate.finding import DECISIONS, SEVERITIES, Decision, Severity
-from securegate.validate import load_yaml_file, reject_unknown_keys
+from securegate.finding import DECISIONS, SEVERITIES, VALIDITIES, Decision, Severity, Validity
+from securegate.validate import did_you_mean, load_yaml_file, reject_unknown_keys
 
 POLICY_VERSION = 1
 TOP_KEYS = ("version", "rules")
-RULE_KEYS = ("name", "when", "decision", "severity", "reason", "remediation")
-CONDITION_KEYS = ("value_matches", "path_matches", "rule_ids", "min_entropy")
+RULE_KEYS = ("number", "name", "when", "decision", "severity", "reason", "remediation")
+CONDITION_KEYS = ("value_matches", "path_matches", "rule_ids", "min_entropy", "validity")
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,12 +29,13 @@ class Conditions:
     path_patterns: tuple[re.Pattern[str], ...] = ()
     rule_ids: frozenset[str] = frozenset()
     min_entropy: float | None = None
+    validity: frozenset[str] = frozenset()
 
     @property
     def matches_everything(self) -> bool:
-        return not (self.value_patterns or self.path_patterns or self.rule_ids) and (
-            self.min_entropy is None
-        )
+        return not (
+            self.value_patterns or self.path_patterns or self.rule_ids or self.validity
+        ) and (self.min_entropy is None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,6 +46,7 @@ class PolicyRule:
     severity: Severity
     reason: str
     remediation: str
+    number: int | None = None  # the rule's number in SecureGate's policy table
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,34 +64,64 @@ class Verdict:
     severity: Severity
     reason: str
     remediation: str
+    number: int | None = None
+
+    @property
+    def label(self) -> str:
+        """How reports name the rule: "rule 8: provider-keys", or just its name."""
+        return f"rule {self.number}: {self.rule_name}" if self.number else self.rule_name
 
 
 # --- deciding --------------------------------------------------------------------------------
 
 
-def decide(policy: Policy, *, rule_id: str, path: str, value: str, entropy: float) -> Verdict:
+def decide(
+    policy: Policy,
+    *,
+    rule_id: str,
+    path: str,
+    value: str,
+    entropy: float,
+    validity: Validity = "not_checked",
+) -> Verdict:
     """Return the verdict of the first matching rule.
 
     `value` is the raw secret. It is only tested against the value_matches regexes here and is
     never stored or returned.
     """
     for rule in policy.rules:
-        if _matches(rule.conditions, rule_id=rule_id, path=path, value=value, entropy=entropy):
+        if _matches(
+            rule.conditions,
+            rule_id=rule_id,
+            path=path,
+            value=value,
+            entropy=entropy,
+            validity=validity,
+        ):
             return Verdict(
                 rule_name=rule.name,
                 decision=rule.decision,
                 severity=rule.severity,
                 reason=f"{rule.name}: {rule.reason}",
                 remediation=rule.remediation,
+                number=rule.number,
             )
     # parse_policy() guarantees a catch-all last rule; fail closed if that is ever broken.
     raise ConfigError(f"{policy.source}: no rule matched; the last rule must have no 'when'")
 
 
 def _matches(
-    conditions: Conditions, *, rule_id: str, path: str, value: str, entropy: float
+    conditions: Conditions,
+    *,
+    rule_id: str,
+    path: str,
+    value: str,
+    entropy: float,
+    validity: str,
 ) -> bool:
     if conditions.rule_ids and rule_id not in conditions.rule_ids:
+        return False
+    if conditions.validity and validity not in conditions.validity:
         return False
     if conditions.path_patterns and not any(p.fullmatch(path) for p in conditions.path_patterns):
         return False
@@ -148,11 +182,13 @@ def parse_policy(data: object, source: str = "policy.yaml") -> Policy:
     repeated = sorted({name for name in names if names.count(name) > 1})
     if repeated:
         raise ConfigError(f"{source}: rule names must be unique; repeated: {', '.join(repeated)}")
+    _check_numbers(rules, source)
     for n, rule in enumerate(rules[:-1], start=1):
         if rule.conditions.matches_everything:
             raise ConfigError(
-                f"{source}: rule #{n} ('{rule.name}') has no 'when', so it matches everything "
-                "and the rules after it can never be used. Only the last rule may omit 'when'."
+                f"{source}: {_rule_ref(n, rule.number)} ('{rule.name}') has no 'when', so it "
+                "matches everything and the rules after it can never be used. Only the last "
+                "rule may omit 'when'."
             )
     if not rules[-1].conditions.matches_everything:
         raise ConfigError(
@@ -162,11 +198,20 @@ def parse_policy(data: object, source: str = "policy.yaml") -> Policy:
     return Policy(rules=rules, source=source)
 
 
-def _parse_rule(item: object, number: int, source: str) -> PolicyRule:
+def _rule_ref(position: int, number: object) -> str:
+    """How messages point at a rule: by its table number ("rule 10"), like the reports do, or
+    by its place in the file ("rule #6") when it has no valid number."""
+    if isinstance(number, int) and not isinstance(number, bool) and number >= 1:
+        return f"rule {number}"
+    return f"rule #{position}"
+
+
+def _parse_rule(item: object, position: int, source: str) -> PolicyRule:
     if not isinstance(item, Mapping):
-        raise ConfigError(f"{source}: rule #{number} must have name, decision and severity")
+        raise ConfigError(f"{source}: rule #{position} must have name, decision and severity")
     name = item.get("name")
-    label = f"{source}: rule #{number}" + (f" ('{name}')" if isinstance(name, str) else "")
+    ref = _rule_ref(position, item.get("number"))
+    label = f"{source}: {ref}" + (f" ('{name}')" if isinstance(name, str) else "")
     reject_unknown_keys(item, RULE_KEYS, where=label)
     if not isinstance(name, str) or not name.strip():
         raise ConfigError(f"{label}: 'name' must be a non-empty text")
@@ -183,7 +228,37 @@ def _parse_rule(item: object, number: int, source: str) -> PolicyRule:
         severity=severity,
         reason=_optional_text(item, "reason", label) or f"matched policy rule '{name.strip()}'",
         remediation=_optional_text(item, "remediation", label),
+        number=_number(item, label),
     )
+
+
+def _number(item: Mapping[object, object], label: str) -> int | None:
+    if "number" not in item:
+        return None
+    value = item["number"]
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        raise ConfigError(f"{label}: 'number' must be a whole number of 1 or more, like 8")
+    return value
+
+
+def _check_numbers(rules: tuple[PolicyRule, ...], source: str) -> None:
+    """Numbers are optional, but then every rule has one, and they go up from top to bottom
+    (gaps are fine: the table's other rules may come later)."""
+    numbered = [(rule.name, rule.number) for rule in rules if rule.number is not None]
+    if not numbered:
+        return
+    if len(numbered) != len(rules):
+        unnumbered = [rule.name for rule in rules if rule.number is None]
+        raise ConfigError(
+            f"{source}: either every rule has a 'number' or none does; missing on: "
+            f"{', '.join(unnumbered)}"
+        )
+    for (name_before, before), (name_after, after) in pairwise(numbered):
+        if after <= before:
+            raise ConfigError(
+                f"{source}: rule numbers must go up from top to bottom, but '{name_after}' "
+                f"(number {after}) comes after '{name_before}' (number {before})"
+            )
 
 
 def _parse_conditions(raw: object, label: str) -> Conditions:
@@ -203,7 +278,17 @@ def _parse_conditions(raw: object, label: str) -> Conditions:
         ),
         rule_ids=frozenset(_text_list(raw, "rule_ids", where)),
         min_entropy=_min_entropy(raw, where),
+        validity=frozenset(_validity(entry, where) for entry in _text_list(raw, "validity", where)),
     )
+
+
+def _validity(entry: str, where: str) -> str:
+    if entry not in VALIDITIES:
+        raise ConfigError(
+            f"{where}: validity '{entry}' is unknown{did_you_mean(entry, VALIDITIES)}. "
+            f"Use one of: {', '.join(VALIDITIES)}"
+        )
+    return entry
 
 
 def _text_list(raw: Mapping[object, object], key: str, where: str) -> list[str]:

@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from helpers import POLICY_FILE, fake_aws_key_id, random_key, random_text
+from helpers import POLICY_FILE, fake_aws_key_id, fake_stripe_key, random_key, random_text
 from securegate import confidence
 from securegate.entropy import shannon_entropy
 from securegate.mask import fingerprint, mask_value
@@ -38,9 +38,10 @@ def test_candidates_become_masked_findings_with_policy_verdicts(policy: Policy) 
     assert (finding.rule, finding.decision, finding.severity) == (
         "aws-access-token",
         "block",
-        "critical",
+        "high",
     )
     assert finding.reason.startswith("provider-keys: ")
+    assert finding.matched_rule == "rule 8: provider-keys"
     assert finding.confidence == 0.9
     assert finding.detector == "gitleaks"
 
@@ -62,7 +63,7 @@ def test_findings_are_sorted_block_then_warn_then_ignore(policy: Policy) -> None
     candidates = [
         candidate("generic-api-key", "b.py", "x" * 20),  # placeholder: ignore
         candidate("generic-api-key", "a.py", random_text(30)),  # warn
-        candidate("stripe-access-token", "z.py", random_text(30)),  # block
+        candidate("stripe-access-token", "z.py", fake_stripe_key()),  # live format: block
     ]
     findings = build_findings(candidates, policy, random_key())
     assert [f.decision for f in findings] == ["block", "warn", "ignore"]

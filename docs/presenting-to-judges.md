@@ -220,8 +220,8 @@ ignore    acme-pay-token       docs/payments.md:10                   acme****xxx
 
 Blocked:
   .env:2  ghp_****pVJI
-    why: github-tokens: A GitHub token gives access to source code and can change it.
-    fix: Revoke the token in GitHub settings, create a new one, and keep it out of the code.
+    why: provider-keys: A payment, cloud or private key gives direct access to money, data or servers.
+    fix: Treat it as leaked. Rotate (replace) the key at the provider now, ...
   config/settings.py:11  AKIA****NOBM
     why: provider-keys: A payment, cloud or private key gives direct access to money, data or servers.
     fix: Treat it as leaked. Rotate (replace) the key at the provider now, ...
@@ -255,14 +255,14 @@ It ends with `10 findings: 5 block, 4 warn, 1 ignore`: the deleted Stripe key is
 notepad policy.yaml
 ```
 
-> This one file decides. The rules are checked from top to bottom, and the first one that matches wins. Placeholders are ignored. Anything in tests, fixtures or docs only gets a warning. Payment, cloud and private keys and GitHub tokens are blocked. Anything else gets a warning. A security team can read and change this without touching the code.
+> This one file decides. The rules are checked from top to bottom, and the first one that matches wins. Each rule has its number from our policy table. A key that the provider confirms is live is always blocked. Placeholders are ignored. Anything in tests, fixtures, docs or Markdown only gets a warning. Live payment, cloud and GitHub keys and private keys are blocked. Test-mode keys, passwords written in the code and risky handling of secrets get a warning, and so does anything else. A security team can read and change this without touching the code.
 
 Close Notepad without saving.
 
 If a judge asks you to change a rule, you can do it live:
 
-1. In Notepad, find `name: everything-else` near the end. Change the `decision: warn` below it to `decision: block`, and save with Ctrl+S.
-2. Run `make scan-demo` again. The last line now says `11 findings: 9 block, 1 warn, 1 ignore`: the three findings that only this last rule covered are now blocked.
+1. In Notepad, find `name: hardcoded-passwords` (rule 10). Change the `decision: warn` below it to `decision: block`, and save with Ctrl+S.
+2. Run `make scan-demo` again. The last line now says `11 findings: 9 block, 1 warn, 1 ignore`: the three findings that this rule covers, values written next to a word like key or password, are now blocked.
 3. Undo the change, and scan again so that the dashboard shows the normal result:
 
 ```powershell
@@ -270,7 +270,7 @@ git restore policy.yaml
 make scan-demo
 ```
 
-SecureGate never guesses when the file has a mistake, such as `decision: stop`. It says what is wrong, for example `rule #5 ('everything-else'): 'decision' must be one of: block, warn, ignore`, and ends with exit code 2. On an error, it never lets anything through.
+SecureGate never guesses when the file has a mistake, such as `decision: stop`. It says what is wrong, for example `rule 10 ('hardcoded-passwords'): 'decision' must be one of: block, warn, ignore`, and ends with exit code 2. On an error, it never lets anything through.
 
 ### Step 5. The dashboard (2 minutes)
 
@@ -289,7 +289,7 @@ and the dashboard opens in your browser. PowerShell stays busy while the dashboa
 
 Show, in this order:
 
-1. **Overview.** The red bar at the top: "BLOCKED: 6 findings are blocked", and "exit code 1". The tiles: 11 findings, 6 blocked, 4 warnings, 1 ignored. **Fix these first** lists the 6 blocked findings, the critical ones first. The bars count the findings by severity. "About this scan" says what was scanned: the whole Git history, with Gitleaks 8.30.1 and `policy.yaml`.
+1. **Overview.** The red bar at the top: "BLOCKED: 6 findings are blocked", and "exit code 1". The tiles: 11 findings, 6 blocked, 4 warnings, 1 ignored. **Fix these first** lists the 6 blocked findings, the most severe first. The bars count the findings by severity. "About this scan" says what was scanned: the whole Git history, with Gitleaks 8.30.1 and `policy.yaml`.
 2. Select the **Blocked** tile. The list now shows only the 6 blocked findings.
 3. Select the row `scripts/migrate_customers.py:3`, the deleted Stripe key. Its page shows `sk_l****562d` with a BLOCK badge, **How to fix** in four numbered steps (starting with "Revoke it at the provider") next to the facts at a glance, and then every field: the commit that added the key, its author Riya Demo, the date, the fingerprint and the confidence score.
 4. If there is time, select **Report** at the top: the whole report on one page. Press Ctrl+P to show that it prints, light, or saves as a PDF. The **CSV** button downloads the findings for Excel.

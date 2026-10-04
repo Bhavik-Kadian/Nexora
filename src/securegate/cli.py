@@ -10,7 +10,7 @@ import contextlib
 import logging
 import os
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 from securegate import __version__
@@ -19,7 +19,7 @@ from securegate.demo.generator import generate
 from securegate.demo.token import new_demo_token
 from securegate.errors import SecureGateError
 from securegate.mask import default_state_dir, load_hmac_key
-from securegate.pipeline import run_scan
+from securegate.pipeline import LABELS, ScannerSetup, parse_scanners, run_scan
 from securegate.policy import load_policy
 from securegate.report import (
     blocked_details,
@@ -29,6 +29,7 @@ from securegate.report import (
     write_json,
 )
 from securegate.scanners import gitleaks
+from securegate.scanners.common import ScannerRun, ToolRunner
 
 EXIT_PASS = 0
 EXIT_BLOCK = 1
@@ -59,6 +60,23 @@ def build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--policy", default="policy.yaml", help="policy file (default: %(default)s)")
     scan.add_argument(
         "--gitleaks-config", default=".gitleaks.toml", help="Gitleaks config (default: %(default)s)"
+    )
+    scan.add_argument(
+        "--scanners",
+        default="gitleaks",
+        metavar="LIST",
+        help="scanners to run, comma-separated: gitleaks (always) and trufflehog, or all "
+        "(default: %(default)s). TruffleHog only scans Git history (repo and range modes)",
+    )
+    scan.add_argument(
+        "--no-verification",
+        action="store_true",
+        help="do not let TruffleHog ask providers whether the keys it finds still work",
+    )
+    scan.add_argument(
+        "--trufflehog-config",
+        default=".trufflehog.yaml",
+        help="TruffleHog config with SecureGate's own detectors (default: %(default)s)",
     )
 
     demo = commands.add_parser("demo-repo", help="build the demo repo with planted secrets")
@@ -106,7 +124,14 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    runner: gitleaks.Runner | None = None,
+    tool_runners: Mapping[str, ToolRunner] | None = None,
+) -> int:
+    """Run one command. `runner` replaces Gitleaks and `tool_runners` the other scanners
+    (by name, such as "trufflehog"); tests pass fakes."""
     _tolerant_console()
     args = build_parser().parse_args(argv)
     runner = runner or gitleaks.subprocess_runner
@@ -126,7 +151,7 @@ def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = 
             return EXIT_PASS
         if args.command == "menu":
             return _menu(runner)
-        return _scan(args, runner)
+        return _scan(args, runner, tool_runners or {})
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
     except KeyboardInterrupt:
@@ -139,7 +164,9 @@ def main(argv: Sequence[str] | None = None, *, runner: gitleaks.Runner | None = 
     return EXIT_ERROR
 
 
-def _scan(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
+def _scan(
+    args: argparse.Namespace, runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]
+) -> int:
     out = Path(args.out)
     report_fields = {
         "target": args.path,
@@ -149,6 +176,13 @@ def _scan(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
     }
     scanner_version: str | None = None
     try:
+        extra = parse_scanners(args.scanners)
+        setup = ScannerSetup(
+            extra=extra,
+            runners=tool_runners,
+            trufflehog_config=Path(args.trufflehog_config) if "trufflehog" in extra else None,
+            verify=not args.no_verification,
+        )
         policy = load_policy(Path(args.policy))
         key = load_hmac_key(os.environ, default_state_dir())
         result = run_scan(
@@ -159,6 +193,7 @@ def _scan(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
             gitleaks_config=Path(args.gitleaks_config),
             runner=runner,
             log_range=args.log_range,
+            setup=setup,
         )
         scanner_version = result.scanner_version
     except SecureGateError as err:
@@ -178,6 +213,7 @@ def _scan(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
             exit_code=exit_code,
             scanner_version=scanner_version,
             findings=result.findings,
+            scanner_runs=result.scanner_runs,
             **report_fields,
         ),
     )
@@ -187,8 +223,23 @@ def _scan(args: argparse.Namespace, runner: gitleaks.Runner) -> int:
     if exit_code == EXIT_BLOCK:
         print(blocked_details(result.findings))
         print()
+    if setup.extra:
+        print(_scanners_line(result.scanner_runs))
     print(summary_line(result.findings, exit_code, out))
     return exit_code
+
+
+def _scanners_line(runs: Sequence[ScannerRun]) -> str:
+    """Which scanners ran, for example: Scanners: Gitleaks 8.30.1, TruffleHog 3.97.9."""
+    parts = []
+    for run in runs:
+        name = LABELS.get(run.name, run.name)
+        if run.status == "ran":
+            ran = f"{name} {run.version}" if run.version else name
+            parts.append(f"{ran} ({run.note})" if run.note else ran)
+        else:
+            parts.append(f"{name} {run.status.replace('_', ' ')}: {run.note or 'no reason given'}")
+    return "Scanners: " + "; ".join(parts)
 
 
 def _write_error_report(out: Path, report_fields: dict[str, str | None], message: str) -> None:

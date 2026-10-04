@@ -42,6 +42,8 @@ If the report is missing or broken, the dashboard says so and shows the exact co
 - for a blocked key: revoke it at the provider, create a new one, store it in a secret manager, then remove it from the code;
 - for a warning or an ignored finding: why it was not blocked, and what to do if it turns out to be real.
 
+The fields include **Found by** (every scanner that found it), **Live check** (whether TruffleHog confirmed with the provider that the key works) and **Policy rule** (the numbered rule that decided, such as `rule 8: provider-keys`).
+
 If the same secret was found in several places, every place is listed. An id that is not in the report shows a "Not found" page.
 
 Example: `/findings/dcc7b5bbfe3c` is the Stripe key from the demo's deleted script. It shows `sk_l****562d`, a BLOCK badge and four steps, starting with "Revoke it at the provider. In the Stripe Dashboard, open Developers > API keys and roll this key".

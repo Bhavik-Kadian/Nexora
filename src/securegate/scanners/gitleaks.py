@@ -13,12 +13,16 @@ import re
 import subprocess
 import tempfile
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, get_args
 
 from securegate.errors import ConfigError, ScannerError
 from securegate.programs import find_program
+from securegate.scanners.candidate import Candidate
+from securegate.scanners.common import RunResult
+
+__all__ = ["Candidate", "RunResult"]  # also importable from here, as before Layer 2
 
 Mode = Literal["repo", "range", "staged", "dir"]
 MODES: tuple[Mode, ...] = get_args(Mode)
@@ -64,28 +68,8 @@ class GitleaksNotFound(ScannerError):
     """The gitleaks program is not installed or not on PATH."""
 
 
-@dataclass(frozen=True, slots=True)
-class RunResult:
-    returncode: int
-    stdout: str
-    stderr: str
-
-
 Runner = Callable[[Sequence[str]], RunResult]
 """Runs `gitleaks <args>`. Raises GitleaksNotFound (or FileNotFoundError) if it is missing."""
-
-
-@dataclass(frozen=True, slots=True)
-class Candidate:
-    """One raw finding. `value` is the raw secret: never print, log or store it."""
-
-    rule_id: str
-    file: str
-    line: int
-    commit: str | None
-    author: str | None
-    date: str | None
-    value: str = field(repr=False)
 
 
 @dataclass(frozen=True, slots=True)

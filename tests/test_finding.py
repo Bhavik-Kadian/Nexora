@@ -13,6 +13,7 @@ FIELD_ORDER = [
     "id",
     "rule",
     "detector",
+    "detectors",
     "file",
     "line",
     "commit",
@@ -22,8 +23,10 @@ FIELD_ORDER = [
     "fingerprint",
     "entropy",
     "confidence",
+    "validity",
     "severity",
     "decision",
+    "matched_rule",
     "reason",
     "remediation",
 ]
@@ -83,10 +86,19 @@ def test_raw_value_never_appears_in_repr_str_or_json() -> None:
     assert not visible
 
 
-@pytest.mark.parametrize(("field", "value"), [("decision", "allow"), ("severity", "urgent")])
-def test_unknown_decision_or_severity_is_rejected(field: str, value: str) -> None:
+@pytest.mark.parametrize(
+    ("field", "value"), [("decision", "allow"), ("severity", "urgent"), ("validity", "maybe")]
+)
+def test_unknown_decision_severity_or_validity_is_rejected(field: str, value: str) -> None:
     with pytest.raises(ValueError, match=field):
         make_finding(**{field: value})
+
+
+def test_detectors_default_to_the_detector_and_validity_to_not_checked() -> None:
+    finding = make_finding()
+    assert finding.detectors == (finding.detector,)
+    assert (finding.validity, finding.matched_rule) == ("not_checked", "")
+    assert finding.to_dict()["detectors"] == [finding.detector]
 
 
 def test_findings_are_immutable() -> None:

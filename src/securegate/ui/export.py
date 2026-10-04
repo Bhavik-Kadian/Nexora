@@ -117,6 +117,7 @@ def _json_finding(f: FindingView) -> dict[str, object]:
         "id": f.id,
         "rule": f.rule,
         "detector": f.detector,
+        "detectors": list(f.found_by),
         "file": f.file,
         "line": f.line,
         "commit": f.commit,
@@ -126,8 +127,10 @@ def _json_finding(f: FindingView) -> dict[str, object]:
         "fingerprint": f.fingerprint,
         "entropy": f.entropy,
         "confidence": f.confidence,
+        "validity": f.validity,
         "severity": f.severity,
         "decision": f.decision,
+        "matched_rule": f.matched_rule,
         "reason": f.reason,
         "remediation": f.remediation,
     }
