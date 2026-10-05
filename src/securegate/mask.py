@@ -49,9 +49,14 @@ class MaskedSecret:
         return self.fingerprint[:ID_LENGTH]
 
 
-def protect(raw: str, key: bytes) -> MaskedSecret:
-    """Mask and fingerprint a raw value. This is the only way to create a MaskedSecret."""
-    return MaskedSecret(mask_value(raw), fingerprint(raw, key), _MINT)
+def protect(raw: str, key: bytes, *, hide_all: bool = False) -> MaskedSecret:
+    """Mask and fingerprint a raw value. This is the only way to create a MaskedSecret.
+
+    `hide_all` shows nothing of the value: for a line of code that handles a secret (a
+    Semgrep risky-handling finding), whose edges would not mean anything to a reader.
+    """
+    masked = HIDDEN if hide_all else mask_value(raw)
+    return MaskedSecret(masked, fingerprint(raw, key), _MINT)
 
 
 def mask_value(raw: str) -> str:

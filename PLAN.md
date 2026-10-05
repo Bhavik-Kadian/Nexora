@@ -455,3 +455,19 @@ From `trufflehog --help`, `trufflehog git --help` and real runs on a throwaway r
 - **Output:** one JSON object per line on stdout; logs are JSON lines on stderr (`--log-level=-1` silences them). Fields: `SourceMetadata.Data.Git.{commit,file,email,repository,timestamp,line,repository_local_path}`, `DetectorType`, `DetectorName`, `DecoderName`, `Verified`, `VerificationFromCache`, `Raw`, `RawV2`, `Redacted`, `ExtraData`, `StructuredData`, `SecretParts`; `VerificationError` only when a check failed. A custom detector reports `DetectorName: "CustomRegex"` with its name in `ExtraData.name`.
 - **Errors:** with `--fail-on-scan-errors`, an unknown `--since-commit` ends with exit code 1 and an error-level log line.
 - **Timestamps** look like `2026-10-04 17:30:45 +0000`; `email` is `Name <address>`.
+
+## Semgrep 1.179.0 and Bandit 1.9.4 facts I verified (milestone 2)
+
+From `semgrep scan --help`, `bandit --help` and real runs on sample code built at runtime:
+- **Run them as programs** (`semgrep`, `bandit` in .venv's scripts folder or on PATH). `python -m semgrep` is deprecated and prints no version.
+- **Semgrep flags used:** `scan --config p/secrets --config rules/securegate-risky.yml --json --metrics off --disable-version-check --disable-nosem --no-git-ignore --no-rewrite-rule-ids --project-root . .` (run inside the private copy).
+  - `--no-rewrite-rule-ids` keeps our rule ids as written (`securegate-secret-logged`); registry ids stay long (`generic.secrets.security.detected-stripe-api-key.detected-stripe-api-key`), so SecureGate keeps their last part.
+  - **Semgrep skips `tests/` and more by default.** With `--project-root .` and an empty `.semgrepignore` in the copy, it scans everything. (`--x-ignore-semgrepignore-files` exists but is marked internal.)
+  - `--disable-nosem` reports lines with a `# nosemgrep` comment.
+  - Exit code 0 when it ran (findings or not); 7 for an invalid rules file; **without internet, p/secrets fails with exit code 2 and no JSON at all**, so SecureGate then runs our rules alone.
+  - Results hold `check_id`, `path` (with `\` on Windows), `start`/`end` (`line`, `col`, byte `offset`) and `extra` (`lines`, `message`, `metadata`, `severity`, `fingerprint`, ...). p/secrets' spans are exactly the key.
+  - `metavariable-regex` is anchored at the start of the text, so our regexes begin with `^` or `.*`. A pattern containing `: ` must be quoted in YAML.
+- **Bandit flags used:** `-f json -q -t B105,B106,B107 --ignore-nosec --exit-zero <files>` (run inside the private copy).
+  - `--exit-zero` makes the exit code 0 whether or not it found anything, so a non-zero code means a real failure. A missing file is reported in `errors`, still with exit code 0.
+  - `issue_text` is exactly `Possible hardcoded password: '<value>'` for all three tests; `code` holds the line and its neighbours (other secrets too); `filename` is `.\a.py` on Windows; results also have `col_offset` and `end_col_offset`.
+  - `--ignore-nosec` reports lines with a `# nosec` comment.

@@ -95,6 +95,25 @@ def score(truth: Sequence[TruthRow], findings: Sequence[Mapping[str, object]]) -
     return Scorecard(tuple(outcomes), planted=len(truth), secrets=sum(r.is_secret for r in truth))
 
 
+def findings_of(
+    findings: Sequence[Mapping[str, object]], detector: str
+) -> list[Mapping[str, object]]:
+    """The findings that one scanner took part in (its name is in `detectors`)."""
+    taken = []
+    for finding in findings:
+        detectors = finding.get("detectors") or [finding.get("detector")]
+        if isinstance(detectors, list) and detector in detectors:
+            taken.append(finding)
+    return taken
+
+
+def score_by_detector(
+    truth: Sequence[TruthRow], findings: Sequence[Mapping[str, object]], detector: str
+) -> Scorecard:
+    """The scorecard of one scanner: only the findings it took part in count."""
+    return score(truth, findings_of(findings, detector))
+
+
 def format_scorecard(card: Scorecard) -> str:
     """A plain-text scorecard for people: counts, then every problem with its location."""
     decoys = card.planted - card.secrets

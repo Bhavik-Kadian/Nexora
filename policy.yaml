@@ -114,6 +114,9 @@ rules:
         - bandit-B105           # Bandit: hardcoded password string
         - bandit-B106           # Bandit: hardcoded password passed to a function
         - bandit-B107           # Bandit: hardcoded password as a default argument
+        - detected-username-and-password-in-uri   # Semgrep p/secrets: user:password@host
+        - detected-ssh-password                   # Semgrep p/secrets: sshpass -p <password>
+        - hardcoded-token                         # Semgrep p/secrets: a token passed to boto3
     decision: warn
     severity: medium
     reason: A password or credential is written in the code, next to its name.

@@ -65,8 +65,8 @@ def build_parser() -> argparse.ArgumentParser:
         "--scanners",
         default="gitleaks",
         metavar="LIST",
-        help="scanners to run, comma-separated: gitleaks (always) and trufflehog, or all "
-        "(default: %(default)s). TruffleHog only scans Git history (repo and range modes)",
+        help="scanners to run, comma-separated: gitleaks (always), trufflehog, semgrep, bandit, "
+        "or all (default: %(default)s). The others only run in repo and range modes",
     )
     scan.add_argument(
         "--no-verification",
@@ -77,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--trufflehog-config",
         default=".trufflehog.yaml",
         help="TruffleHog config with SecureGate's own detectors (default: %(default)s)",
+    )
+    scan.add_argument(
+        "--semgrep-rules",
+        default="rules/securegate-risky.yml",
+        help="SecureGate's own Semgrep rules (default: %(default)s)",
     )
 
     demo = commands.add_parser("demo-repo", help="build the demo repo with planted secrets")
@@ -131,7 +136,7 @@ def main(
     tool_runners: Mapping[str, ToolRunner] | None = None,
 ) -> int:
     """Run one command. `runner` replaces Gitleaks and `tool_runners` the other scanners
-    (by name, such as "trufflehog"); tests pass fakes."""
+    (by name: "trufflehog", "semgrep", "bandit"); tests pass fakes."""
     _tolerant_console()
     args = build_parser().parse_args(argv)
     runner = runner or gitleaks.subprocess_runner
@@ -182,6 +187,7 @@ def _scan(
             runners=tool_runners,
             trufflehog_config=Path(args.trufflehog_config) if "trufflehog" in extra else None,
             verify=not args.no_verification,
+            semgrep_rules=Path(args.semgrep_rules),
         )
         policy = load_policy(Path(args.policy))
         key = load_hmac_key(os.environ, default_state_dir())
@@ -256,11 +262,11 @@ def _write_error_report(out: Path, report_fields: dict[str, str | None], message
 
 def _demo_repo(args: argparse.Namespace) -> int:
     result = generate(Path(args.out), seed=args.seed, force=args.force)
-    secrets = sum(line.is_secret for line in result.planted)
-    decoys = len(result.planted) - secrets
+    real = sum(line.is_secret for line in result.planted)
+    decoys = len(result.planted) - real
     print(f"Demo repo ready: {result.out}")
     print(f"  {len(result.commits)} commits by {AUTHOR_NAME}, seed {result.seed}")
-    print(f"  planted: {secrets} secret lines and {decoys} decoy lines")
+    print(f"  planted: {real} secret lines and {decoys} decoy lines")
     print(f"  ground truth: {result.ground_truth}")
     print("Next: scan it with `make scan-demo`")
     return EXIT_PASS

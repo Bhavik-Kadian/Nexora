@@ -9,8 +9,15 @@ SPECIFIC_RULE_CONFIDENCE = 0.9  # the rule matched a known key format (AWS, Stri
 GENERIC_CAP = 0.8  # a generic match is never as certain as a known format
 ENTROPY_SCALE = 6.0  # a long random base64 string has about 6 bits of entropy per character
 # Rules that match a word next to a value rather than a key format: Gitleaks' generic rule,
-# Bandit's password checks and SecureGate's own Semgrep rules.
-GENERIC_PREFIXES = ("generic", "bandit-", "securegate-")
+# Bandit's password checks, SecureGate's own Semgrep rules and p/secrets' password rules.
+GENERIC_PREFIXES = (
+    "generic",
+    "bandit-",
+    "securegate-",
+    "hardcoded-",
+    "detected-username-and-password",
+    "detected-ssh-password",
+)
 
 
 def estimate(rule_id: str, entropy: float) -> float:

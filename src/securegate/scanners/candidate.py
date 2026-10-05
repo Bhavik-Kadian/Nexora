@@ -18,3 +18,4 @@ class Candidate:
     value: str = field(repr=False)
     detector: str = "gitleaks"  # the scanner that found it
     validity: Validity = "not_checked"  # only TruffleHog checks whether a key is live
+    code: bool = False  # `value` is the code that handles a secret, not a secret: show none of it

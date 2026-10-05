@@ -24,8 +24,9 @@ compare masked values, counts or booleans instead.
 ## Commands
 - `make setup`; `make check` (lint + test, before every commit); `make test`; `make lint`
 - `make demo` + `make scan-demo`: demo repo in ../securegate-demo; exit 1 is expected there
-- `securegate scan --scanners all` adds TruffleHog (required: if it fails, exit 2) to Gitleaks;
-  tests run it only with `--no-verification`, so fake keys are never sent to providers
+- `securegate scan --scanners all` adds TruffleHog (required: if it fails, exit 2), Semgrep and
+  Bandit (optional: if one fails, the scan goes on and records "did not run"); tests run
+  TruffleHog only with `--no-verification`, so fake keys are never sent to providers
 - `make ui`: read-only dashboard (127.0.0.1, masked values, no JavaScript; dark, light in print;
   design values only in src/securegate/ui/static/css/tokens.css). Downloads (CSV/JSON/Markdown)
   and /report are built from the checked ReportView only. `make sample-report`: sample_findings.json

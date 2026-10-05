@@ -8,6 +8,7 @@ A map of SecureGate's files. You don't need to read code to change its behavior:
 policy.yaml                         the rules that decide block / warn / ignore
 .gitleaks.toml                      which key shapes Gitleaks looks for
 .trufflehog.yaml                    TruffleHog's extra detectors (the ACME Pay token)
+rules/securegate-risky.yml          SecureGate's own Semgrep rules: risky handling of secrets
 .pre-commit-config.yaml             the laptop gate (installed with make hooks)
 .github/workflows/secret-gate.yml   the merge gate: the check on every pull request
 Makefile                            short commands: make setup, make test, make demo, ...
@@ -27,6 +28,9 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `cli.py` | Reads your command (`securegate scan ...`), runs it, and returns the exit code. |
 | `scanners/gitleaks.py` | Runs Gitleaks, reads its report from a temporary folder, then deletes the folder. |
 | `scanners/trufflehog.py` | With `--scanners all`: runs TruffleHog over the Git history. It can ask the provider whether a key still works. |
+| `scanners/changes.py` | Copies the code Semgrep and Bandit read into a private folder: in a range scan, the files the range changed, as they are at its end. |
+| `scanners/semgrep.py` | Runs Semgrep with p/secrets and SecureGate's own rules on that copy. If it fails, the scan goes on and says Semgrep did not run. |
+| `scanners/bandit.py` | Runs Bandit's password checks (B105, B106, B107) on the Python files of that copy. Optional, like Semgrep. |
 | `pipeline.py` | The only place raw secrets pass through. It turns each one into a masked finding, then merges findings. |
 | `merge.py` | Turns findings of the same secret or line into one, keeping the strongest decision and every scanner that found it. |
 | `entropy.py` | Measures how random a value looks. |
@@ -89,6 +93,7 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | detect a new kind of key | `.gitleaks.toml`: add a `[[rules]]` entry, like `acme-pay-token`; for TruffleHog too, `.trufflehog.yaml` |
 | install TruffleHog, Semgrep and Bandit, or change their versions | `make scanners`; the versions are in the `env:` block at the top of `.github/workflows/secret-gate.yml` |
 | change how findings of the same line are merged | `src/securegate/merge.py` |
+| catch another risky way of handling a secret | `rules/securegate-risky.yml` (and its sample in `tests/test_code_scanners_real.py`) |
 | plant a new secret or decoy in the demo | `src/securegate/demo/catalog.yaml` (see [Testing](testing.md)) |
 | change how values are masked | `src/securegate/mask.py` |
 | change the table or `findings.json` | `src/securegate/report.py` |

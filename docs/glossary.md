@@ -2,6 +2,8 @@
 
 **127.0.0.1 (localhost)**: a web address that always means "this computer". The dashboard answers only there, so nobody else on the network can open it. Example: `http://127.0.0.1:5000`.
 
+**Bandit**: a free, open-source checker for Python code. SecureGate runs three of its checks, for passwords written in the code (B105, B106, B107). Example: `password = "hunter2"`.
+
 **CI (continuous integration)**: a service that runs checks automatically every time someone proposes a change to a project. Example: GitHub shows a red cross on a pull request when a check fails. SecureGate runs there as the merge gate, the `secret-gate` check.
 
 **Commit**: a saved snapshot of a project in Git, with a message, an author and a date.
@@ -45,6 +47,8 @@
 **Rotation**: replacing a leaked secret with a new one and cancelling the old one, so the leaked copy stops working. It is the only real fix for a leak.
 
 **Ruleset**: a set of rules that GitHub enforces on branches. Example: "main only changes through a pull request whose `secret-gate` check passed".
+
+**Semgrep**: a free, open-source code checker that matches patterns in code. SecureGate runs Semgrep's p/secrets rules and its own rules for risky handling of secrets, such as printing a token to a log.
 
 **Secret**: a password, key or token that gives access to something: money, data, servers or code. Example: a Stripe live key lets you take card payments.
 

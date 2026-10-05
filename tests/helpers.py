@@ -10,12 +10,14 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from securegate.demo.generator import PlantedLine
+from securegate.scanners.common import ProgramRunner, RunResult
 from securegate.scanners.gitleaks import GitleaksNotFound, find_gitleaks
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 POLICY_FILE = REPO_ROOT / "policy.yaml"
 GITLEAKS_CONFIG = REPO_ROOT / ".gitleaks.toml"
 TRUFFLEHOG_CONFIG = REPO_ROOT / ".trufflehog.yaml"
+SEMGREP_RULES = REPO_ROOT / "rules" / "securegate-risky.yml"
 
 _ALPHABET = string.ascii_letters + string.digits
 _BASE32 = string.ascii_uppercase + "234567"
@@ -92,7 +94,7 @@ def scan_args(target: Path, mode: str = "repo") -> list[str]:
 
 
 def multi_scan_args(
-    target: Path, *extra: str, mode: str = "repo", scanners: str = "all"
+    target: Path, *extra: str, mode: str = "repo", scanners: str = "gitleaks,trufflehog"
 ) -> list[str]:
     """`securegate scan` with more scanners than Gitleaks, using this repo's configs."""
     return [
@@ -101,8 +103,27 @@ def multi_scan_args(
         scanners,
         "--trufflehog-config",
         str(TRUFFLEHOG_CONFIG),
+        "--semgrep-rules",
+        str(SEMGREP_RULES),
         *extra,
     ]
+
+
+class RecordingTruffleHog(ProgramRunner):
+    """The real TruffleHog runner, remembering every command line it ran, so a test can prove
+    that verification was switched off (a fake key must never reach a real provider)."""
+
+    def __init__(self) -> None:
+        super().__init__("trufflehog", timeout=600)
+        self.calls: list[list[str]] = []
+
+    def __call__(self, args: list[str], *, cwd: Path | None = None) -> RunResult:
+        self.calls.append(list(args))
+        return super().__call__(args, cwd=cwd)
+
+    def scanned_without_verification(self) -> bool:
+        scans = [call for call in self.calls if call[:1] == ["git"] and "--help" not in call]
+        return len(scans) == 1 and "--no-verification" in scans[0]
 
 
 class Page(HTMLParser):

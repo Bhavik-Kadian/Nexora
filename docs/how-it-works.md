@@ -16,7 +16,7 @@ SecureGate asks **Gitleaks**, a free scanner, to read every commit. Gitleaks kno
 
 At this moment the full key exists only in SecureGate's memory. It is never printed or saved.
 
-With `--scanners all`, a second scanner, **TruffleHog**, reads the history too. It can also ask Stripe whether the key still works, which Gitleaks cannot. When both find the same key on the same line, SecureGate reports it once and names both.
+With `--scanners all`, a second scanner, **TruffleHog**, reads the history too. It can also ask Stripe whether the key still works, which Gitleaks cannot. Two code checkers join them: **Semgrep** looks for key formats and for code that handles a secret carelessly, such as printing it to a log, and **Bandit** looks for passwords written in Python code. When several find the same key or line, SecureGate reports it once and names them all.
 
 ## Step 2: Decide
 
@@ -67,7 +67,7 @@ The only real fix is **rotation**: create a new key at Stripe, switch the app to
 
 ```mermaid
 flowchart LR
-    A["Project and its Git history"] --> B["Find: Gitleaks and TruffleHog spot key-shaped text"]
+    A["Project and its Git history"] --> B["Find: Gitleaks, TruffleHog, Semgrep and Bandit"]
     B --> C["Decide: policy.yaml, first matching rule wins"]
     C -->|block| D["Exit code 1: stop"]
     C -->|warn| E["Reported, let through"]

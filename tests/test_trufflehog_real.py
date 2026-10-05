@@ -4,35 +4,23 @@ Skipped when either program is missing. Verification is always switched off, so 
 never sent to anyone; every test checks that --no-verification reached TruffleHog.
 """
 
-from pathlib import Path
-
 import pytest
 
-from helpers import GitRepo, fake_acme_token, git_installed, gitleaks_installed, multi_scan_args
+from helpers import (
+    GitRepo,
+    RecordingTruffleHog,
+    fake_acme_token,
+    git_installed,
+    gitleaks_installed,
+    multi_scan_args,
+)
 from securegate.mask import mask_value
 from securegate.programs import find_program
-from securegate.scanners.common import ProgramRunner, RunResult
 
 pytestmark = pytest.mark.skipif(
     not (gitleaks_installed() and git_installed() and find_program("trufflehog")),
     reason="needs gitleaks, git and trufflehog (make scanners)",
 )
-
-
-class RecordingRunner(ProgramRunner):
-    """The real TruffleHog runner, remembering every command line it ran."""
-
-    def __init__(self) -> None:
-        super().__init__("trufflehog", timeout=300)
-        self.calls: list[list[str]] = []
-
-    def __call__(self, args: list[str], *, cwd: Path | None = None) -> RunResult:
-        self.calls.append(list(args))
-        return super().__call__(args, cwd=cwd)
-
-    def scanned_without_verification(self) -> bool:
-        scans = [call for call in self.calls if call[:1] == ["git"] and "--help" not in call]
-        return len(scans) == 1 and "--no-verification" in scans[0]
 
 
 def leak_then_remove(repo: GitRepo) -> tuple[str, str, str]:
@@ -57,7 +45,7 @@ def leak_then_remove(repo: GitRepo) -> tuple[str, str, str]:
 def test_a_key_removed_later_is_found_by_both_secret_scanners(run_cli, make_repo) -> None:
     repo = make_repo()
     base, head, token = leak_then_remove(repo)
-    hog = RecordingRunner()
+    hog = RecordingTruffleHog()
 
     result = run_cli(
         *multi_scan_args(
@@ -79,7 +67,7 @@ def test_a_key_removed_later_is_found_by_both_secret_scanners(run_cli, make_repo
 def test_the_whole_history_is_scanned_in_repo_mode(run_cli, make_repo) -> None:
     repo = make_repo()
     leak_then_remove(repo)
-    hog = RecordingRunner()
+    hog = RecordingTruffleHog()
 
     result = run_cli(
         *multi_scan_args(repo.path, "--no-verification"), tool_runners={"trufflehog": hog}

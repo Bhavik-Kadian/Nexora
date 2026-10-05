@@ -1,0 +1,86 @@
+# SecureGate's own Semgrep rules: Python code that handles a secret in a risky way.
+#
+# They do not look for secrets themselves (Gitleaks, TruffleHog and Semgrep's p/secrets do
+# that); they look for code that leaks or weakens one. policy.yaml rule 13 (risky-handling)
+# turns their findings into warnings.
+#
+# A "secret-named" variable is one whose name contains api_key, apikey, secret, token,
+# password, passwd, pwd, credential or private_key, such as api_token or self.db_password.
+# Note: Semgrep's metavariable-regex is anchored at the start, so the regexes below begin
+# with ^ or .* on purpose.
+#
+# Tested with Semgrep 1.179.0 by tests/test_semgrep_real.py, on sample code built at runtime.
+
+rules:
+  - id: securegate-secret-logged
+    languages: [python]
+    severity: WARNING
+    message: A variable named like a secret is printed or written to a log.
+    patterns:
+      - pattern-either:
+          - pattern: print(..., $SECRET, ...)
+          - pattern: print(..., f"...{$SECRET}...", ...)
+          - pattern: print(..., "..." % $SECRET, ...)
+          - pattern: print(..., "...".format(..., $SECRET, ...), ...)
+          - patterns:
+              - pattern-either:
+                  - pattern: $LOGGER.$METHOD(..., $SECRET, ...)
+                  - pattern: $LOGGER.$METHOD(..., f"...{$SECRET}...", ...)
+                  - pattern: $LOGGER.$METHOD(..., "..." % $SECRET, ...)
+                  - pattern: $LOGGER.$METHOD(..., "...".format(..., $SECRET, ...), ...)
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(debug|info|warning|warn|error|critical|exception|log|fatal)$
+      - metavariable-regex:
+          metavariable: $SECRET
+          regex: (?i)^[a-z0-9_.]*(api_?key|secret|token|passw(or)?d|passwd|pwd|credential|private_?key)[a-z0-9_]*$
+
+  - id: securegate-secret-in-url
+    languages: [python]
+    severity: WARNING
+    message: A variable named like a secret is put into a URL query string.
+    patterns:
+      - pattern-either:
+          - patterns:  # f"https://api.example.com/v1?token={api_token}"
+              - pattern: $URL
+              - pattern: f"...{$SECRET}..."
+              - metavariable-regex:
+                  metavariable: $URL
+                  regex: '.*[?&][A-Za-z0-9_.~-]+=\{'
+          - patterns:  # "https://api.example.com/v1?token=" + api_token
+              - pattern: $PREFIX + $SECRET
+              - metavariable-regex:
+                  metavariable: $PREFIX
+                  regex: '.*[?&][A-Za-z0-9_.~-]+=["'']$'
+          - patterns:  # "https://api.example.com/v1?token=%s" % api_token
+              - pattern: $FORMAT % $SECRET
+              - metavariable-regex:
+                  metavariable: $FORMAT
+                  regex: '.*[?&][A-Za-z0-9_.~-]+=%s'
+          - patterns:  # "https://api.example.com/v1?token={}".format(api_token)
+              - pattern: $FORMAT.format(..., $SECRET, ...)
+              - metavariable-regex:
+                  metavariable: $FORMAT
+                  regex: '.*[?&][A-Za-z0-9_.~-]+=\{\}'
+          - patterns:  # requests.get(url, params={"token": api_token})
+              - pattern: "$CLIENT.$METHOD(..., params={..., $KEY: $SECRET, ...}, ...)"
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(get|post|put|patch|delete|head|options|request)$
+      - metavariable-regex:
+          metavariable: $SECRET
+          regex: (?i)^[a-z0-9_.]*(api_?key|secret|token|passw(or)?d|passwd|pwd|credential|private_?key)[a-z0-9_]*$
+
+  - id: securegate-getenv-default
+    languages: [python]
+    severity: WARNING
+    message: A secret read from the environment falls back to a value written in the code.
+    patterns:
+      - pattern-either:
+          - pattern: os.getenv($NAME, "$DEFAULT")
+          - pattern: os.getenv($NAME, default="$DEFAULT")
+          - pattern: os.environ.get($NAME, "$DEFAULT")
+          - pattern: os.environ.get($NAME, default="$DEFAULT")
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i).*(api_?key|secret|token|passw|pwd|credential|private_?key)
