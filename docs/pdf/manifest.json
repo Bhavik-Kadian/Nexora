@@ -1,13 +1,13 @@
 {
   "README.md": "dc9d116ee176cbb41ef1c31a00818c3edbe7b0b8ce05c4058756f649a7cf8e09",
   "decisions.md": "aa2cee6093dd8d3e2e9d2884f0b8b648c8f71aea412faa43b4e179b82adffff2",
-  "demo-merge-gate.md": "b1e58b95bbd218fffecd43c50e734a494ab30e96e4662bfbc7b5b942208b6681",
+  "demo-merge-gate.md": "c50d2662a5fb921886856d512a3f57b59ae45040f4685dd25223d08d01a7dc79",
   "getting-started.md": "ba320756bd254ee64f04208881ce9d1983bde47e014aefdd770a88dd60eefb8d",
   "glossary.md": "b0577fee4aa9180b3151cc41e0baeb26ae25f8a6d55653b71a17d103eee125d9",
-  "how-it-works.md": "c7735477d0af5f02aec21b6c46e3111b22f1ed1ea4990c93c3c9216760990151",
+  "how-it-works.md": "89c2ff5cdbbff3e7f462713a52e79c6105ecab7ce00ec5dd8d6bd4b4e19678a0",
   "how-its-built.md": "c656be15fbeb7936205015a0f2d141e81f51a819dca606016a55f5176a55ccef",
   "merge-gate.md": "98c6c6bb212612ee9e444eb6fd7929a8f23398252569909fa2a30450e1a365a2",
-  "presenting-to-judges.md": "e3884f4dbcf1cf2002732b232c492bbcba1df24cbf171fe44bee498c175be6ad",
+  "presenting-to-judges.md": "fabb4c73b2955b762b815a52f23e50d482bf5445c0fb7a3495eec73001e81a17",
   "testing.md": "5002f5e5d9b9414d63d40e069539444a403773f47d7de609b424cab9eeb8ac06",
   "ui.md": "63030c88a4c4c5519fbe599a1d3895cca4171ca4a3b19bd22f400cadd88749a7"
 }

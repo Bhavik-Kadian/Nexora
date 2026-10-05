@@ -52,6 +52,17 @@ def test_make_hooks_installs_the_hook() -> None:
     assert re.search(r"^hooks:\n\t.*-m pre_commit install --install-hooks$", makefile, re.M)
 
 
+def test_make_scan_demo_all_never_sends_the_demos_fake_keys_to_a_provider() -> None:
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+    recipe = re.search(r"^scan-demo-all:\n\t(.*)$", makefile, re.M)
+    assert recipe is not None
+    command = recipe.group(1)
+    assert "--scanners all" in command
+    assert "--no-verification" in command  # the demo's Stripe, AWS and GitHub fakes stay local
+    assert "--comment reports/" in command  # reports/ is ignored by Git
+    assert "reports/" in (REPO_ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+
+
 # --- merge gate -----------------------------------------------------------------------------
 
 WORKFLOW = REPO_ROOT / ".github" / "workflows" / "secret-gate.yml"
