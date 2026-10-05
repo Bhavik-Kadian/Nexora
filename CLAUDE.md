@@ -32,7 +32,11 @@ compare masked values, counts or booleans instead.
 - `make ui`: read-only dashboard (127.0.0.1, masked values, no JavaScript; dark, light in print;
   design values only in src/securegate/ui/static/css/tokens.css). Downloads (CSV/JSON/Markdown)
   and /report are built from the checked ReportView only. `make sample-report`: sample_findings.json
-- `make hooks`: laptop gate (pre-commit). Merge gate: .github/workflows/secret-gate.yml
+- `make hooks`: laptop gate (pre-commit). Merge gate: .github/workflows/secret-gate.yml (all four
+  scanners on every PR to main; summary, one PR comment, SARIF, findings.json artifact). It installs
+  SecureGate and its rules from the BASE branch, so a gate change ships in two PRs: code, then the
+  workflow that uses it. Repos: origin = Bhavik-Kadian/SecureGate (work), nexora = Bhavik-Kadian/
+  Nexora (stores every branch; main goes there as build-main; never overwrite its main)
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
 - `make menu` (`securegate menu`): the interactive menu in src/securegate/menu/ (art, colour only in
   a real terminal). Each choice runs a securegate command; Enter closes its dashboard. Q = exit 0
@@ -41,10 +45,10 @@ compare masked values, counts or booleans instead.
   still parses
 
 ## Environment
-- Gitleaks 8.30.1 (winget). Use only flags listed by `gitleaks git --help` / `gitleaks dir --help`.
-- TruffleHog 3.97.9, Semgrep 1.179.0, Bandit 1.9.4: `make scanners` installs them into .venv at the
-  versions pinned in the workflow's top `env:` block (tools/install_scanners.py reads them there).
-  Use only flags their `--help` lists. gh 2.102.0 (winget).
+- Tool versions are pinned once, in the workflow's top `env:` block, and repeated here (a test
+  checks they match): Gitleaks 8.30.1 (winget), TruffleHog 3.97.9, Semgrep 1.179.0, Bandit 1.9.4
+  (`make scanners` installs the last three into .venv; tools/install_scanners.py reads the block).
+  Use only flags each tool's `--help` lists. gh 2.102.0 (winget).
 - Python 3.12.10 in .venv, GNU Make 4.4.1 (winget ezwinports.make), Git 2.55, Windows 11.
 - actionlint 1.7.12 (winget) for the workflow; headless Edge builds the PDFs.
 

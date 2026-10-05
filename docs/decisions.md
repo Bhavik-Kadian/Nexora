@@ -139,17 +139,18 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Why:** a secret deleted in a later commit is still in the history. A required check with path filters would never run for some pull requests and leave them stuck.
 
 ## 34. The base branch judges each pull request
-- **Chose:** the workflow installs SecureGate, and takes `policy.yaml` and `.gitleaks.toml`, from the pull request's base commit.
+- **Chose:** the workflow installs SecureGate, and takes `policy.yaml`, `.gitleaks.toml`, `.trufflehog.yaml` and `rules/`, from the pull request's base commit.
 - **Why:** otherwise a pull request could loosen the policy or change the scanner and pass its own check. Changes to the gate count once merged.
 - **Known limit:** a pull request can still edit the workflow file, because GitHub runs the pull request's copy. `merge-gate.md` recommends requiring an approval.
+- **Consequence:** a change to the gate ships in two pull requests, code first and then the workflow that uses it; Layer 2 did exactly that.
 - **Rejected:** `pip install -e .` of the pull request itself, as first specified.
 
-## 35. Pinned actions and a checked Gitleaks download
-- **Chose:** `actions/checkout` and `actions/setup-python` at their latest major version (v7, looked up on 2026-09-30), pinned to full commit SHAs with the version in a comment. Gitleaks comes from its official release, and both the checksums file (its SHA-256 is pinned in the workflow) and the archive are verified before use.
+## 35. Pinned actions and checked downloads
+- **Chose:** `actions/checkout`, `actions/setup-python` and `actions/upload-artifact` (v7) and `github/codeql-action/upload-sarif` (v4), each at its latest major version (looked up on 2026-10-05), pinned to full commit SHAs with the version in a comment. Gitleaks and TruffleHog come from their official releases, and both the checksums file (its SHA-256 is pinned in the workflow) and the archive are verified before use. Semgrep and Bandit are installed with pip at pinned versions. Every version sits in one `env:` block at the top of the workflow.
 - **Why:** a tag can be moved to other code; a commit SHA cannot. The pinned checksum also protects against a release file being replaced later.
 
-## 36. The summary is a SecureGate command
-- **Chose:** `securegate summary` writes the Markdown for GitHub's job summary, in a step that always runs and never changes the result.
+## 36. The summary is a SecureGate output
+- **Chose:** the scan writes the Markdown for GitHub's job summary (`--summary`, the same report as the pull request comment; `securegate summary` prints it for any `findings.json`), and a step that always runs and never changes the result adds it to the job's page.
 - **Why:** it reuses the dashboard's report checks, so only masked values can reach GitHub's page, and it is tested like the rest of SecureGate.
 
 ## 37. Demo tokens use our invented ACME format
@@ -224,3 +225,9 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Why:** everything a reviewer needs is in the pull request itself, in plain words. Building every output from `findings.json`, read back through the dashboard's check that every value is masked, means no output can hold more than that check let through, and every value is escaped so a file name cannot break the table or add HTML.
 - **Consequences:** after an error, the comment and summary say ERROR and any old SARIF file is deleted, because uploading an empty one would tell GitHub that every earlier alert was fixed. Long reports stop after 50 rows (GitHub refuses comments over 65,536 characters); `findings.json` keeps everything.
 - **Rejected:** uploading the scanners' own SARIF (it holds unmasked values and none of our decisions); a red text colour through GitHub's maths notation (it does not degrade gracefully where it is not rendered).
+
+## 50. The workflow: four scanners, one comment, and the exit code decides last
+- **Chose:** `secret-gate` runs on every pull request to main (no path filters), once per pull request at a time (a new push cancels the older run), with a 10-minute limit. Its token may read the code, write pull request comments and upload SARIF, nothing else. The scan step runs all four scanners on every commit of the pull request and saves SecureGate's exit code instead of failing at once; the summary, the SARIF upload (only after a finished scan), the `findings.json` artifact and the comment then always run and can never change the result; the last step passes or fails the check with the saved code, and with 2 when the scan never ran. The comment is found again by its hidden marker and updated, so a pull request gets one comment, not one per push. TruffleHog checks whether keys are live here (`--no-verification` is for tests only).
+- **Why:** reviewers see everything in the pull request, and nothing that only reports can turn a red check green or a green one red.
+- **Forks:** a pull request from a fork gets a read-only token, so it gets no comment and no SARIF upload; its check still runs and decides.
+- **Rejected:** failing in the scan step (the summary and comment would be skipped exactly when they matter most); a new comment on every push; uploading SARIF after an error.
