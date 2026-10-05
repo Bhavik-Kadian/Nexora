@@ -39,7 +39,7 @@ On GitHub, select **Compare & pull request**, then **Create pull request**. Do n
 
 ## 4. See the red check
 
-After about a minute, the check **secret-gate** shows a red cross. Select **Details**; if you see a list of steps instead of a table, select **Summary** at the top left. The summary shows `demo_leak.py:1`, the masked token (such as `acme****x9Qz`), why it was blocked and the fix. The full token is never shown.
+After about a minute, the check **secret-gate** shows a red cross, and SecureGate posts a comment on the pull request: "SecureGate: BLOCKED (exit code 1)", `demo_leak.py:1` with the masked token (such as `acme****x9Qz`), **rule 8: provider-keys**, found by Gitleaks and TruffleHog, and a checklist to rotate the key. The full token is never shown. The same report is on the check's page: select **Details**, then **Summary** at the top left if you see a list of steps.
 
 ## 5. Delete the line in a new commit
 
@@ -51,7 +51,7 @@ git push
 
 ## 6. See that the check is still red
 
-The check runs again and stays red. The newest version of the code no longer has the token, but the pull request's first commit still does, and the gate scans every commit. Anyone who can see the pull request can open that commit and read the token. With a real key, this is the moment to revoke it at the provider: deleting the line did not undo the leak.
+The check runs again and stays red, and SecureGate updates its comment instead of adding a new one. The newest version of the code no longer has the token, but the pull request's first commit still does, and the gate scans every commit. Anyone who can see the pull request can open that commit and read the token. With a real key, this is the moment to revoke it at the provider: deleting the line did not undo the leak.
 
 ## 7. Clean up
 

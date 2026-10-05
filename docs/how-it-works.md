@@ -1,6 +1,6 @@
 # How it works
 
-This page follows one leaked key, from the moment it is found to the report you read.
+This page follows one leaked key, from the moment it is found to the report you read, and then to the pull request that GitHub refuses to merge.
 
 ## The example
 
@@ -49,6 +49,39 @@ For every blocked finding it says why it was blocked and how to fix it. Both lin
 
 The full details go to `findings.json`. SecureGate then ends with **exit code 1**. An exit code is the number a program gives back when it finishes, so that other tools can react. 1 means "at least one finding is blocked".
 
+## Step 4: The pull request on GitHub
+
+Riya pushes her branch and opens a **pull request**: a request to add her commits to the main version of DemoPay. Before anyone can merge it, GitHub runs SecureGate's check, `secret-gate`, on its own computers:
+
+1. All four scanners look: Gitleaks and TruffleHog read **every commit** of the pull request, including the one that deleted the script; Semgrep and Bandit read the code it changed.
+2. TruffleHog asks Stripe whether the key still works. If it does, the finding becomes **rule 1, `verified-live`**: critical, blocked, whatever else is true about it.
+3. SecureGate merges what the scanners found: the same key on the same line is one finding, which names every scanner that saw it.
+4. `policy.yaml` decides, with the rules taken from main, so the pull request cannot loosen the rules that judge it.
+
+The check turns **red**, and with the one-time setting in [The two gates](merge-gate.md), the merge button stays locked. SecureGate also posts one comment on the pull request, and keeps it up to date on every push:
+
+```markdown
+### SecureGate: BLOCKED (exit code 1)
+
+**This pull request cannot be merged.** Fix every blocked finding below: revoke the key, then remove it from every commit.
+
+| Decision | Rule | Where | Masked value | Found by | Live check |
+|---|---|---|---|---|---|
+| BLOCK | rule 1: verified-live | `scripts/migrate_customers.py:3` | `sk_l****562d` | Gitleaks, TruffleHog | Live: the provider confirmed it works |
+
+#### Fix `scripts/migrate_customers.py:3`: a Stripe key (`sk_l****562d`)
+
+- [ ] Revoke the key at Stripe. In the Stripe Dashboard, open Developers > API keys and roll this key, which revokes it.
+- [ ] Create a new key.
+- [ ] Store the new key in a secret manager, such as GitHub Actions secrets, Azure Key Vault or AWS Secrets Manager.
+- [ ] Replace the line with `os.environ["STRIPE_SECRET_KEY"]`, so the code reads the key when it runs.
+- [ ] Confirm that the old key no longer works. In the Stripe Dashboard, the old key is no longer listed under Developers > API keys.
+
+Deleting the line is not enough: the key stays in Git history.
+```
+
+The same report appears on the check's page (the **job summary**), the findings go to the repository's **Security** tab, and `findings.json` is kept as a download of the run. Everything shows masked values only.
+
 ## Why deleting the line is not enough
 
 Git keeps every commit. Anyone with a copy of the project can open the old commit and read the key. Deleting the line only hides it from the newest version.
@@ -67,12 +100,13 @@ The only real fix is **rotation**: create a new key at Stripe, switch the app to
 
 ```mermaid
 flowchart LR
-    A["Project and its Git history"] --> B["Find: Gitleaks, TruffleHog, Semgrep and Bandit"]
-    B --> C["Decide: policy.yaml, first matching rule wins"]
-    C -->|block| D["Exit code 1: stop"]
+    A["Commit or pull request"] --> B["Find: Gitleaks, TruffleHog, Semgrep and Bandit"]
+    B --> M["Merge: one finding per key and line"]
+    M --> C["Decide: policy.yaml, first matching rule wins"]
+    C -->|block| D["Exit code 1: commit stopped, check red"]
     C -->|warn| E["Reported, let through"]
     C -->|ignore| F["Listed only"]
-    D --> G["Report: masked table and findings.json"]
+    D --> G["Report: masked table, findings.json, PR comment, Security tab"]
     E --> G
     F --> G
 ```

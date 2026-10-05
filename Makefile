@@ -6,6 +6,9 @@
 #   make demo       build the demo repo with planted secrets in ../securegate-demo
 #   make scan-demo  scan the demo repo; SecureGate exits 1 there because it finds secrets
 #                   to block, so make reports "Error 1"
+#   make scan-demo-all  the same with all four scanners (run `make scanners` once first), and
+#                   the pull request comment, summary and SARIF written into reports/. Live
+#                   checks stay off: the demo's fake keys must never reach a real provider
 #   make ui         open the dashboard on the demo scan (http://127.0.0.1:5000, Ctrl+C stops)
 #   make menu       open SecureGate's menu: scan, see the rules and open the dashboard without
 #                   typing commands (what Start SecureGate.cmd opens; Q quits)
@@ -28,7 +31,7 @@ endif
 
 DEMO_DIR := ../securegate-demo
 
-.PHONY: setup test lint check demo scan-demo ui menu sample-report hooks scanners docs-pdf
+.PHONY: setup test lint check demo scan-demo scan-demo-all ui menu sample-report hooks scanners docs-pdf
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -49,6 +52,9 @@ demo:
 
 scan-demo:
 	"$(VENV_PY)" -m securegate scan "$(DEMO_DIR)" --mode repo --out findings-demo.json
+
+scan-demo-all:
+	"$(VENV_PY)" -m securegate scan "$(DEMO_DIR)" --mode repo --scanners all --no-verification --out findings-demo.json --comment reports/demo-comment.md --summary reports/demo-summary.md --sarif reports/demo.sarif
 
 ui:
 	"$(VENV_PY)" -m securegate ui --report findings-demo.json --open
