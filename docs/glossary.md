@@ -50,6 +50,8 @@
 
 **Semgrep**: a free, open-source code checker that matches patterns in code. SecureGate runs Semgrep's p/secrets rules and its own rules for risky handling of secrets, such as printing a token to a log.
 
+**SARIF**: a standard file format for the results of code checkers. GitHub shows a SARIF file's results in a repository's **Security** tab. Example: `securegate scan --sarif gate.sarif`.
+
 **Secret**: a password, key or token that gives access to something: money, data, servers or code. Example: a Stripe live key lets you take card payments.
 
 **Status check**: a test that GitHub runs on a pull request and shows as a green tick or a red cross. A ruleset can make it required. Example: `secret-gate`.

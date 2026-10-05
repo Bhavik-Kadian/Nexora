@@ -39,7 +39,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `mask.py` | Hides the value and makes its fingerprint. |
 | `finding.py` | The finding record. It can only hold a masked value. |
 | `report.py` | Prints the table, the "why and fix" lines for blocked findings, and writes `findings.json`. |
-| `summary.py` | Turns `findings.json` into a short Markdown summary (`securegate summary`), used on GitHub's check page. |
+| `outputs/` | The reports besides `findings.json`: the pull request comment and the job summary (one template, `outputs/templates/report.md.j2`; `securegate summary` prints it), the checklists to rotate a blocked key (`outputs/rotation.py`) and SARIF for GitHub's Security tab (`outputs/sarif.py`). All are made from `findings.json` read back through the dashboard's check that every value is masked. |
 | `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. |
 | `ui/` | The read-only dashboard: `app.py` (the pages and downloads), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `export.py` (the CSV and JSON downloads), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/` (a dark theme, light when printed). |
 | `menu/` | The menu that `Start SecureGate.cmd` and `make menu` open: `app.py` (the screen and the choices; each choice runs a `securegate` command and shows it first), `art.py` (the padlock and the big letters) and `terminal.py` (colours, only in a real terminal). |
@@ -93,6 +93,9 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | detect a new kind of key | `.gitleaks.toml`: add a `[[rules]]` entry, like `acme-pay-token`; for TruffleHog too, `.trufflehog.yaml` |
 | install TruffleHog, Semgrep and Bandit, or change their versions | `make scanners`; the versions are in the `env:` block at the top of `.github/workflows/secret-gate.yml` |
 | change how findings of the same line are merged | `src/securegate/merge.py` |
+| change the pull request comment or the job summary | `src/securegate/outputs/templates/report.md.j2` |
+| change the steps to rotate a blocked key | `src/securegate/outputs/rotation.py` |
+| change the SARIF file for GitHub's Security tab | `src/securegate/outputs/sarif.py` |
 | catch another risky way of handling a secret | `rules/securegate-risky.yml` (and its sample in `tests/test_code_scanners_real.py`) |
 | plant a new secret or decoy in the demo | `src/securegate/demo/catalog.yaml` (see [Testing](testing.md)) |
 | change how values are masked | `src/securegate/mask.py` |

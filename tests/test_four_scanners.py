@@ -4,6 +4,7 @@ Convention: raw test values never appear inside an assert; masks, fields and boo
 """
 
 import json
+from pathlib import Path
 
 from conftest import CliRun
 from fake_code_scanners import FakeBandit, FakeSemgrep, Spot
@@ -142,3 +143,43 @@ def test_code_scanners_are_skipped_for_files_on_disk(run_cli, make_repo) -> None
     statuses = [(s["name"], s["status"]) for s in result.report["scanners"]]
     assert statuses[2:] == [("semgrep", "skipped"), ("bandit", "skipped")]
     assert fakes["semgrep"].calls == [] and fakes["bandit"].calls == []
+
+
+def test_the_output_flags_write_the_comment_summary_and_sarif(
+    run_cli, make_repo, tmp_path: Path
+) -> None:
+    repo = make_repo()
+    password, commit = app_repo(repo)
+    sarif, summary, comment = (tmp_path / n for n in ("gate.sarif", "summary.md", "comment.md"))
+
+    result = run_all(
+        run_cli, repo, scanners(password, commit),
+        "--sarif", str(sarif), "--summary", str(summary), "--comment", str(comment),
+    )  # fmt: skip
+
+    assert result.exit_code == 0
+    assert comment.read_text(encoding="utf-8").startswith("<!-- securegate:pr-comment -->")
+    assert "### SecureGate: PASSED WITH WARNINGS" in summary.read_text(encoding="utf-8")
+    results = json.loads(sarif.read_text(encoding="utf-8"))["runs"][0]["results"]
+    assert sorted(r["ruleId"] for r in results) == [
+        "rule-10-hardcoded-passwords",
+        "rule-13-risky-handling",
+    ]
+
+
+def test_a_failed_scan_writes_error_outputs_and_removes_old_sarif(
+    run_cli, make_repo, tmp_path: Path
+) -> None:
+    repo = make_repo()
+    password, commit = app_repo(repo)
+    fakes = scanners(password, commit)
+    fakes["trufflehog"] = FakeTruffleHog(exit_code=2)
+    sarif, comment = tmp_path / "gate.sarif", tmp_path / "comment.md"
+    sarif.write_text('{"stale": true}', encoding="utf-8")
+
+    result = run_all(run_cli, repo, fakes, "--sarif", str(sarif), "--comment", str(comment))
+
+    assert result.exit_code == 2
+    assert not sarif.exists()  # an old "all clear" must not be uploaded
+    text = comment.read_text(encoding="utf-8")
+    assert "### SecureGate: ERROR" in text and "TruffleHog failed (exit code 2)" in text

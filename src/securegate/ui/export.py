@@ -70,6 +70,16 @@ def findings_json(
         "mode": report.mode,
         "range": report.log_range,
         "scanner": {"name": "gitleaks", "version": report.scanner_version},
+        "scanners": [
+            {
+                "name": s.name,
+                "version": s.version,
+                "required": s.required,
+                "status": s.status,
+                "note": s.note,
+            }
+            for s in report.scanners
+        ],
         "policy": report.policy,
         "exported": {"from": report.path.name, "decision": decision},
         "summary": {"total": len(findings), **{d: counts[d] for d in DECISIONS}},

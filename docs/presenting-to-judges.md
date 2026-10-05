@@ -352,7 +352,7 @@ If the commit went through (the laptop gate was not on), first undo it with `git
 This needs the internet and the GitHub preparation. In the pull request's browser tab, show:
 
 1. The check **secret-gate** with a red cross, and the box at the bottom saying that merging is blocked.
-2. Select **Details** next to the check. If you see a list of steps instead of a table, select **Summary** at the top left. The summary says "SecureGate: BLOCKED (exit code 1)", lists `demo_leak.py:1` with the masked token, why it was blocked and the fix, and explains that deleting the line does not turn the check green.
+2. Select **Details** next to the check. If you see a list of steps instead of a table, select **Summary** at the top left. The summary says "SecureGate: BLOCKED (exit code 1)", lists `demo_leak.py:1` with the masked token and the rule that blocked it, gives a checklist to rotate the key, and explains that deleting the line is not enough, because the key stays in Git history.
 3. The pull request's **Commits** tab: the second commit deleted the token, yet the check is still red.
 
 > This is the real control. It runs on GitHub's computers, for every pull request, whoever opened it. It scans every commit in the pull request, so deleting the key later does not help: it is still in the history, where anyone can read it. It judges each pull request with the rules from the main branch, so a pull request cannot weaken the rules that judge it. And with this setting, nobody, not even an admin, can merge while the check is red.

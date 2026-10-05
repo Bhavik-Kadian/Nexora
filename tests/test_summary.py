@@ -29,7 +29,7 @@ def test_blocked_report_summary(sample_report: Path) -> None:
     lines = text.splitlines()
 
     assert lines[0] == "### SecureGate: BLOCKED (exit code 1)"
-    assert "| Decision | Where | Masked value | Why | Fix |" in lines
+    assert "| Decision | Rule | Where | Masked value | Found by | Live check |" in lines
     assert sum(line.startswith(("| BLOCK |", "| WARN |")) for line in lines) == len(shown)
     assert all(f"`{f['masked_value']}`" in text for f in shown)
     s = data["summary"]
@@ -48,7 +48,7 @@ def test_summary_never_shows_a_planted_value(
 def test_a_clean_scan_says_so(tmp_path: Path, sample_report: Path) -> None:
     data = dict(report_data(sample_report), findings=[], exit_code=0, status="pass")
     text = render_summary(load_report(write_report(tmp_path, data)))
-    assert text.splitlines()[0] == "### SecureGate: PASS (exit code 0)"
+    assert text.splitlines()[0] == "### SecureGate: PASSED (exit code 0)"
     assert "No secrets found." in text
 
 

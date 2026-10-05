@@ -26,7 +26,9 @@ compare masked values, counts or booleans instead.
 - `make demo` + `make scan-demo`: demo repo in ../securegate-demo; exit 1 is expected there
 - `securegate scan --scanners all` adds TruffleHog (required: if it fails, exit 2), Semgrep and
   Bandit (optional: if one fails, the scan goes on and records "did not run"); tests run
-  TruffleHog only with `--no-verification`, so fake keys are never sent to providers
+  TruffleHog only with `--no-verification`, so fake keys are never sent to providers.
+  `--comment/--summary/--sarif FILE` are built from findings.json read back through
+  load_report (masked only); no SARIF is written after an error
 - `make ui`: read-only dashboard (127.0.0.1, masked values, no JavaScript; dark, light in print;
   design values only in src/securegate/ui/static/css/tokens.css). Downloads (CSV/JSON/Markdown)
   and /report are built from the checked ReportView only. `make sample-report`: sample_findings.json

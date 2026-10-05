@@ -90,13 +90,17 @@ def envelope(
 
 def write_json(path: Path, data: dict[str, object]) -> None:
     """Write JSON atomically, so a half-written findings.json is never left behind."""
+    write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
+def write_text(path: Path, text: str) -> None:
+    """Write a file atomically: readers see the old file or the whole new one, never half."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-                json.dump(data, handle, indent=2, ensure_ascii=False)
-                handle.write("\n")
+                handle.write(text)
             os.replace(temp_name, path)
         except BaseException:
             Path(temp_name).unlink(missing_ok=True)

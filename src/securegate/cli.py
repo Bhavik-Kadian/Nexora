@@ -19,6 +19,7 @@ from securegate.demo.generator import generate
 from securegate.demo.token import new_demo_token
 from securegate.errors import SecureGateError
 from securegate.mask import default_state_dir, load_hmac_key
+from securegate.outputs import Targets, write_outputs
 from securegate.pipeline import LABELS, ScannerSetup, parse_scanners, run_scan
 from securegate.policy import load_policy
 from securegate.report import (
@@ -82,6 +83,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--semgrep-rules",
         default="rules/securegate-risky.yml",
         help="SecureGate's own Semgrep rules (default: %(default)s)",
+    )
+    scan.add_argument(
+        "--sarif", metavar="FILE", help="also write SARIF 2.1.0 for GitHub's Security tab"
+    )
+    scan.add_argument("--summary", metavar="FILE", help="also write the Markdown job summary")
+    scan.add_argument(
+        "--comment", metavar="FILE", help="also write the Markdown pull request comment"
     )
 
     demo = commands.add_parser("demo-repo", help="build the demo repo with planted secrets")
@@ -173,6 +181,11 @@ def _scan(
     args: argparse.Namespace, runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]
 ) -> int:
     out = Path(args.out)
+    targets = Targets(
+        sarif=Path(args.sarif) if args.sarif else None,
+        summary=Path(args.summary) if args.summary else None,
+        comment=Path(args.comment) if args.comment else None,
+    )
     report_fields = {
         "target": args.path,
         "mode": args.mode,
@@ -202,27 +215,29 @@ def _scan(
             setup=setup,
         )
         scanner_version = result.scanner_version
+        exit_code = EXIT_BLOCK if any(f.decision == "block" for f in result.findings) else EXIT_PASS
+        write_json(
+            out,
+            envelope(
+                exit_code=exit_code,
+                scanner_version=scanner_version,
+                findings=result.findings,
+                scanner_runs=result.scanner_runs,
+                **report_fields,
+            ),
+        )
+        if targets.any:
+            write_outputs(out, targets, finished=True)
     except SecureGateError as err:
-        _write_error_report(out, report_fields, str(err))
+        _fail(out, report_fields, targets, str(err))
         raise
     except KeyboardInterrupt:
-        _write_error_report(out, report_fields, "interrupted")
+        _fail(out, report_fields, targets, "interrupted")
         raise
     except Exception as err:
-        _write_error_report(out, report_fields, f"internal error ({type(err).__name__})")
+        _fail(out, report_fields, targets, f"internal error ({type(err).__name__})")
         raise
 
-    exit_code = EXIT_BLOCK if any(f.decision == "block" for f in result.findings) else EXIT_PASS
-    write_json(
-        out,
-        envelope(
-            exit_code=exit_code,
-            scanner_version=scanner_version,
-            findings=result.findings,
-            scanner_runs=result.scanner_runs,
-            **report_fields,
-        ),
-    )
     if result.findings:
         print(render_table(result.findings))
         print()
@@ -248,16 +263,18 @@ def _scanners_line(runs: Sequence[ScannerRun]) -> str:
     return "Scanners: " + "; ".join(parts)
 
 
-def _write_error_report(out: Path, report_fields: dict[str, str | None], message: str) -> None:
-    """Replace any older report, so a failed scan never leaves a stale 'pass' behind.
-
-    If even that fails, the original error still ends the run with exit code 2.
-    """
+def _fail(out: Path, report_fields: dict[str, str | None], targets: Targets, message: str) -> None:
+    """Replace any older report and outputs, so a failed scan never leaves a stale 'pass'
+    behind: findings.json gets an error report, the comment and summary say ERROR, and an old
+    SARIF file is removed. If even that fails, the original error still means exit code 2."""
     with contextlib.suppress(SecureGateError):
         write_json(
             out,
             envelope(exit_code=EXIT_ERROR, scanner_version=None, error=message, **report_fields),
         )
+    if targets.any:
+        with contextlib.suppress(SecureGateError):
+            write_outputs(out, targets, finished=False)
 
 
 def _demo_repo(args: argparse.Namespace) -> int:

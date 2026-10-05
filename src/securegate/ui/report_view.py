@@ -17,6 +17,13 @@ from pathlib import Path
 from securegate.finding import DECISIONS, SEVERITIES, VALIDITIES
 
 SCHEMA_VERSION = 1
+SCANNER_LABELS = {
+    "gitleaks": "Gitleaks",
+    "trufflehog": "TruffleHog",
+    "semgrep": "Semgrep",
+    "bandit": "Bandit",
+}
+SCANNER_STATUSES = ("ran", "did_not_run", "skipped")
 # How the dashboard and the reports say what TruffleHog's live check found.
 LIVE_CHECK = {
     "verified": "Live: the provider confirmed it works",
@@ -134,6 +141,21 @@ class FindingView:
 
 
 @dataclass(frozen=True)
+class ScannerView:
+    """How one scanner fared, from findings.json's "scanners" list."""
+
+    name: str  # gitleaks, trufflehog, semgrep or bandit
+    version: str | None
+    required: bool
+    status: str  # ran, did_not_run or skipped
+    note: str | None
+
+    @property
+    def label(self) -> str:
+        return SCANNER_LABELS.get(self.name, self.name)
+
+
+@dataclass(frozen=True)
 class ReportView:
     path: Path
     status: str
@@ -146,6 +168,8 @@ class ReportView:
     policy: str
     securegate_version: str
     findings: tuple[FindingView, ...]  # blocks first, then warnings, then ignored
+    # Every scanner and how it fared. Reports from before Layer 2 list only Gitleaks.
+    scanners: tuple[ScannerView, ...] = ()
 
     @property
     def result(self) -> str:
@@ -242,7 +266,35 @@ def _report(path: Path, data: object) -> ReportView:
         policy=_text(data.get("policy")) or "unknown",
         securegate_version=_text(data.get("version")) or "unknown",
         findings=tuple(findings),
+        scanners=_scanners(data.get("scanners"), _text(scanner.get("version"))),
     )
+
+
+def _scanners(raw: object, gitleaks_version: str | None) -> tuple[ScannerView, ...]:
+    """The scanners list. A report from before Layer 2 has none: then Gitleaks ran alone."""
+    if raw is None:
+        return (ScannerView("gitleaks", gitleaks_version, True, "ran", None),)
+    if not isinstance(raw, list):
+        raise _Unusable("The report has an unexpected 'scanners' list.")
+    views = []
+    for item in raw:
+        if not (
+            isinstance(item, dict)
+            and isinstance(item.get("name"), str)
+            and item.get("status") in SCANNER_STATUSES
+            and isinstance(item.get("required"), bool)
+        ):
+            raise _Unusable("The report has an unexpected entry in its 'scanners' list.")
+        views.append(
+            ScannerView(
+                name=item["name"],
+                version=_text(item.get("version")),
+                required=item["required"],
+                status=item["status"],
+                note=_text(item.get("note")),
+            )
+        )
+    return tuple(views)
 
 
 def _finding(item: object, number: int) -> FindingView:

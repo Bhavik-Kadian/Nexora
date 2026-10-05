@@ -58,7 +58,7 @@ The buttons at the top of the Overview and Findings pages download what SecureGa
 |---|---|---|
 | CSV | `findings-demo.csv` | One row per finding, for Excel or another spreadsheet: decision, severity, rule, file, line, masked value, policy rule, reason, fix, commit, author, date, confidence, entropy, detector, id and fingerprint. |
 | JSON | `findings-demo.json` | The same findings as a SecureGate report, for other programs. The dashboard and `securegate summary` can open it too. |
-| Markdown summary | `findings-demo-summary.md` | The short summary that the merge gate shows on GitHub: the blocked findings and warnings, with why and how to fix. Paste it into a ticket or a pull request. |
+| Markdown summary | `findings-demo-summary.md` | The report the merge gate shows on GitHub and posts on the pull request: the verdict, the findings table, a checklist to rotate every blocked key, and why each warning was not blocked. Paste it into a ticket or a pull request. |
 | Printable report | | Opens the Report page. |
 
 On the Findings page, CSV and JSON download only the findings shown: with the filter set to Block, you get `findings-demo-block.csv` with the blocked findings only. The file names come from the report's name.
