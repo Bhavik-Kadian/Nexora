@@ -11,6 +11,8 @@
 #                   typing commands (what Start SecureGate.cmd opens; Q quits)
 #   make sample-report  write sample_findings.json (about 20 findings) for the designers
 #   make hooks      install the laptop gate: scan staged changes before every commit
+#   make scanners   install TruffleHog, Semgrep and Bandit into .venv, at the versions the merge
+#                   gate pins (TruffleHog's download is checked against its release checksums)
 #   make docs-pdf   rebuild docs/pdf/*.pdf from docs/*.md (needs Edge or Chrome)
 #
 # Works from PowerShell, cmd and Git Bash on Windows, and from macOS/Linux shells.
@@ -26,7 +28,7 @@ endif
 
 DEMO_DIR := ../securegate-demo
 
-.PHONY: setup test lint check demo scan-demo ui menu sample-report hooks docs-pdf
+.PHONY: setup test lint check demo scan-demo ui menu sample-report hooks scanners docs-pdf
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -59,6 +61,9 @@ sample-report:
 
 hooks:
 	"$(VENV_PY)" -m pre_commit install --install-hooks
+
+scanners:
+	"$(VENV_PY)" tools/install_scanners.py
 
 docs-pdf:
 	"$(VENV_PY)" tools/docs_pdf.py

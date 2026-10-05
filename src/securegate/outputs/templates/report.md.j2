@@ -1,0 +1,106 @@
+{#- SecureGate's Markdown report: the pull request comment (comment=True) and the job summary.
+    Every {{ value }} goes through markdown.safe, so it cannot break a table or add HTML.
+    Literal Markdown (headings, tables, code spans) lives here, never inside a value. -#}
+{% if comment %}
+<!-- securegate:pr-comment -->
+{% endif %}
+{% if problem %}
+### SecureGate: ERROR
+
+**{{ problem.title }}.** {{ problem.detail }}
+
+SecureGate fails closed: without a finished scan, the check cannot pass.
+{% else %}
+### SecureGate: {{ verdict }} (exit code {{ exit_code }})
+
+{% if verdict == "BLOCKED" %}
+**This pull request cannot be merged.** Fix every blocked finding below: revoke the key, then remove it from every commit.
+{% elif verdict == "PASSED WITH WARNINGS" %}
+**Nothing is blocked**, so this pull request can be merged. Each warning is explained below: check them.
+{% elif verdict == "PASSED" %}
+**Nothing is blocked or worth a warning.**
+{% else %}
+**SecureGate could not finish the scan**, so this check fails.
+{% endif %}
+
+{% if range %}
+Scanned every commit in `{{ range }}` with {{ scanners }}, using `{{ policy }}`.
+{% else %}
+Scanned {{ what }} of `{{ target }}` with {{ scanners }}, using `{{ policy }}`.
+{% endif %}
+{% for run in not_run %}
+
+> [!CAUTION]
+> **{{ run.label }} did not run**: {{ run.note or "no reason was given" }}. The other scanners still decided this check.
+{% endfor %}
+{% for run in skipped %}
+
+{{ run.label }} was skipped: {{ run.note or "no reason was given" }}.
+{% endfor %}
+{% for run in notes %}
+
+Note: {{ run.label }}: {{ run.note }}.
+{% endfor %}
+{% if rows %}
+
+| Decision | Rule | Where | Masked value | Found by | Live check |
+|---|---|---|---|---|---|
+{% for row in rows %}
+| {{ row.decision }} | {{ row.rule }} | `{{ row.location }}` | `{{ row.masked }}` | {{ row.found_by }} | {{ row.live }} |
+{% endfor %}
+{% if more_rows %}
+
+And {{ more_rows }} more: see `findings.json` in the workflow run's artifacts.
+{% endif %}
+{% endif %}
+
+{% if any_findings %}
+{{ counts[0] }} blocked, {{ counts[1] }} warnings, {{ counts[2] }} ignored.
+{% else %}
+No secrets found.
+{% endif %}
+{% for item in checklists %}
+
+#### Fix `{{ item.location }}`: {{ item.title }} (`{{ item.masked }}`)
+
+- [ ] {{ item.revoke }}
+- [ ] Create a new key.
+- [ ] Store the new key in a secret manager, such as GitHub Actions secrets, Azure Key Vault or AWS Secrets Manager.
+- [ ] Replace the line with `os.environ["{{ item.env }}"]`, so the code reads the key when it runs.
+- [ ] Confirm that the old key no longer works. {{ item.confirm }}
+
+Why it was blocked: {{ item.rule }}. {{ item.why }}
+
+{{ history_sentence }}
+{% endfor %}
+{% if more_checklists %}
+
+And {{ more_checklists }} more blocked findings: each needs the same steps.
+{% endif %}
+{% if in_history %}
+
+{{ in_history }}
+{% endif %}
+{% if warnings %}
+
+#### Why these were not blocked
+
+{% for item in warnings %}
+- `{{ item.location }}` (`{{ item.masked }}`): {{ item.rule }}. {{ item.why }}
+{% endfor %}
+{% endif %}
+{% if ignored %}
+
+<details>
+<summary>Ignored: {{ counts[2] }}, because they are not secrets</summary>
+
+{% for item in ignored %}
+- `{{ item.location }}` (`{{ item.masked }}`): {{ item.rule }}. {{ item.why }}
+{% endfor %}
+{% if more_ignored %}
+- And {{ more_ignored }} more.
+{% endif %}
+
+</details>
+{% endif %}
+{% endif %}

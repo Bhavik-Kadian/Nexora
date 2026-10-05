@@ -101,8 +101,10 @@ def run_cli(
     monkeypatch.chdir(tmp_path)
     report_file = tmp_path / "findings.json"
 
-    def run(*args: str, runner: Runner | None = None) -> CliRun:
-        exit_code = main(list(args), runner=runner)
+    def run(
+        *args: str, runner: Runner | None = None, tool_runners: dict[str, Any] | None = None
+    ) -> CliRun:
+        exit_code = main(list(args), runner=runner, tool_runners=tool_runners)
         captured = capsys.readouterr()
         report = (
             json.loads(report_file.read_text(encoding="utf-8")) if report_file.exists() else None

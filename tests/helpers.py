@@ -10,11 +10,14 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from securegate.demo.generator import PlantedLine
+from securegate.scanners.common import ProgramRunner, RunResult
 from securegate.scanners.gitleaks import GitleaksNotFound, find_gitleaks
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 POLICY_FILE = REPO_ROOT / "policy.yaml"
 GITLEAKS_CONFIG = REPO_ROOT / ".gitleaks.toml"
+TRUFFLEHOG_CONFIG = REPO_ROOT / ".trufflehog.yaml"
+SEMGREP_RULES = REPO_ROOT / "rules" / "securegate-risky.yml"
 
 _ALPHABET = string.ascii_letters + string.digits
 _BASE32 = string.ascii_uppercase + "234567"
@@ -35,9 +38,31 @@ def fake_acme_token() -> str:
     return "acme_" + "live_" + random_text(32)
 
 
-def fake_aws_key_id() -> str:
+def fake_aws_key_id(prefix: str = "AKIA") -> str:
     """A fake AWS access key id in the real format, built at runtime."""
-    return "AKIA" + "".join(secrets.choice(_BASE32) for _ in range(16))
+    return prefix + "".join(secrets.choice(_BASE32) for _ in range(16))
+
+
+def fake_acme_test_token() -> str:
+    """A fake ACME Pay test-mode token, built at runtime."""
+    return "acme_" + "test_" + random_text(32)
+
+
+def fake_stripe_key(mode: str = "live", kind: str = "sk") -> str:
+    """A fake Stripe key such as sk_live_ + 24 letters and digits, built at runtime."""
+    return f"{kind}_" + f"{mode}_" + random_text(24)
+
+
+def fake_github_token(prefix: str = "ghp") -> str:
+    """A fake GitHub token such as ghp_ + 36 letters and digits, built at runtime."""
+    return f"{prefix}_" + random_text(36)
+
+
+def fake_private_key() -> str:
+    """A fake PEM private key; the BEGIN and END markers are assembled from parts."""
+    dashes, label = "-" * 5, "RSA " + "PRIVATE" + " KEY"
+    body = "\n".join(random_text(64) for _ in range(4))
+    return f"{dashes}BEGIN {label}{dashes}\n{body}\n{dashes}END {label}{dashes}"
 
 
 def leaked(planted: Sequence[PlantedLine], text: str) -> list[str]:
@@ -66,6 +91,39 @@ def scan_args(target: Path, mode: str = "repo") -> list[str]:
         "--gitleaks-config",
         str(GITLEAKS_CONFIG),
     ]
+
+
+def multi_scan_args(
+    target: Path, *extra: str, mode: str = "repo", scanners: str = "gitleaks,trufflehog"
+) -> list[str]:
+    """`securegate scan` with more scanners than Gitleaks, using this repo's configs."""
+    return [
+        *scan_args(target, mode),
+        "--scanners",
+        scanners,
+        "--trufflehog-config",
+        str(TRUFFLEHOG_CONFIG),
+        "--semgrep-rules",
+        str(SEMGREP_RULES),
+        *extra,
+    ]
+
+
+class RecordingTruffleHog(ProgramRunner):
+    """The real TruffleHog runner, remembering every command line it ran, so a test can prove
+    that verification was switched off (a fake key must never reach a real provider)."""
+
+    def __init__(self) -> None:
+        super().__init__("trufflehog", timeout=600)
+        self.calls: list[list[str]] = []
+
+    def __call__(self, args: list[str], *, cwd: Path | None = None) -> RunResult:
+        self.calls.append(list(args))
+        return super().__call__(args, cwd=cwd)
+
+    def scanned_without_verification(self) -> bool:
+        scans = [call for call in self.calls if call[:1] == ["git"] and "--help" not in call]
+        return len(scans) == 1 and "--no-verification" in scans[0]
 
 
 class Page(HTMLParser):

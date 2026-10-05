@@ -2,6 +2,8 @@
 
 **127.0.0.1 (localhost)**: a web address that always means "this computer". The dashboard answers only there, so nobody else on the network can open it. Example: `http://127.0.0.1:5000`.
 
+**Bandit**: a free, open-source checker for Python code. SecureGate runs three of its checks, for passwords written in the code (B105, B106, B107). Example: `password = "hunter2"`.
+
 **CI (continuous integration)**: a service that runs checks automatically every time someone proposes a change to a project. Example: GitHub shows a red cross on a pull request when a check fails. SecureGate runs there as the merge gate, the `secret-gate` check.
 
 **Commit**: a saved snapshot of a project in Git, with a message, an author and a date.
@@ -28,11 +30,13 @@
 
 **Hardcoded**: written directly into the code, instead of being loaded from a safe place when the program runs. Example: a Stripe key typed into a Python file.
 
+**Live check (validity)**: asking the provider whether a found key still works. TruffleHog can do it for the services it knows. Example: `verified` means the provider confirmed the key is live; SecureGate then always blocks it (rule 1).
+
 **Masking**: hiding most of a value before showing it. SecureGate keeps the first 4 and last 4 characters of values with 16 or more characters, like `sk_l****562d`. Shorter values become `****`.
 
 **Placeholder**: a made-up stand-in value. Example: `YOUR_API_KEY_HERE` or `changeme`.
 
-**Policy**: the rules in `policy.yaml` that decide block, warn or ignore for each finding.
+**Policy**: the numbered rules in `policy.yaml` that decide block, warn or ignore for each finding. Example: `rule 8: provider-keys` blocks live payment, cloud and GitHub keys.
 
 **Pre-commit**: the moment just before a change is saved as a commit. A pre-commit check can stop a secret before it ever enters the history. Example: after `make hooks`, every commit first runs `securegate scan . --mode staged`, which checks exactly the changes about to be committed.
 
@@ -44,8 +48,14 @@
 
 **Ruleset**: a set of rules that GitHub enforces on branches. Example: "main only changes through a pull request whose `secret-gate` check passed".
 
+**Semgrep**: a free, open-source code checker that matches patterns in code. SecureGate runs Semgrep's p/secrets rules and its own rules for risky handling of secrets, such as printing a token to a log.
+
+**SARIF**: a standard file format for the results of code checkers. GitHub shows a SARIF file's results in a repository's **Security** tab. Example: `securegate scan --sarif gate.sarif`.
+
 **Secret**: a password, key or token that gives access to something: money, data, servers or code. Example: a Stripe live key lets you take card payments.
 
 **Status check**: a test that GitHub runs on a pull request and shows as a green tick or a red cross. A ruleset can make it required. Example: `secret-gate`.
+
+**TruffleHog**: a free, open-source scanner that finds secrets in Git history, like Gitleaks, and can also ask the provider whether a key still works. SecureGate runs it with `--scanners all`.
 
 **Workflow**: a list of steps that GitHub Actions runs on GitHub's own computers when something happens, such as a new pull request. Example: `.github/workflows/secret-gate.yml`.

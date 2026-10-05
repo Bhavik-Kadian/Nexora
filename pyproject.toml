@@ -34,6 +34,7 @@ where = ["src"]
 [tool.setuptools.package-data]
 "securegate.demo" = ["catalog.yaml", "templates/*.j2"]
 "securegate.ui" = ["templates/*.html", "static/css/*.css"]
+"securegate.outputs" = ["templates/*.j2"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

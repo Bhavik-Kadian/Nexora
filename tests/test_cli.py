@@ -20,6 +20,7 @@ FINDING_FIELDS = [
     "id",
     "rule",
     "detector",
+    "detectors",
     "file",
     "line",
     "commit",
@@ -29,8 +30,10 @@ FINDING_FIELDS = [
     "fingerprint",
     "entropy",
     "confidence",
+    "validity",
     "severity",
     "decision",
+    "matched_rule",
     "reason",
     "remediation",
 ]

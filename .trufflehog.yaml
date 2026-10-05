@@ -1,0 +1,20 @@
+# SecureGate's TruffleHog configuration (tested with TruffleHog 3.97.9).
+#
+# TruffleHog FINDS possible secrets and can check with the provider whether a key still works;
+# SecureGate's policy.yaml then DECIDES block / warn / ignore. TruffleHog's built-in detectors
+# (AWS, Stripe, GitHub, private keys and hundreds more) are always on; this file only adds ours.
+# SecureGate passes it with --config. TruffleHog never reads it on its own, so a scanned
+# repository cannot bring a config that silences anything.
+# Format: https://github.com/trufflesecurity/trufflehog#regex-detector-example
+
+detectors:
+  # ACME Pay is the invented payment provider of SecureGate's demos. Its tokens are acme_live_
+  # or acme_test_ followed by exactly 32 letters and digits (the same rule as .gitleaks.toml).
+  # There is no `verify` endpoint yet, so TruffleHog never contacts anyone about these tokens
+  # and reports them as unverified (not confirmed live).
+  - name: ACME Pay token
+    keywords:
+      - acme_live_
+      - acme_test_
+    regex:
+      token: '\bacme_(?:live|test)_[A-Za-z0-9]{32}\b'

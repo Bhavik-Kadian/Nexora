@@ -243,12 +243,13 @@ class Menu:
             "that matches a finding decides."
         )
         self.say("")
-        width = max(30, self.terminal.columns() - 14)
-        for number, rule in enumerate(policy.rules, start=1):
+        width = max(30, self.terminal.columns() - 15)
+        for position, rule in enumerate(policy.rules, start=1):
+            number = rule.number or position  # the policy table's number, as in the reports
             decision = self.paint(f"{rule.decision.upper():<6}", DECISION_STYLES[rule.decision])
-            self.say(f"{MARGIN}{number}. {decision}  {rule.name}")
+            self.say(f"{MARGIN}{number:>2}. {decision}  {rule.name}")
             for line in textwrap.wrap(rule.reason, width=width):
-                self.say(f"{MARGIN}           {self.paint(line, GREY)}")
+                self.say(f"{MARGIN}            {self.paint(line, GREY)}")
         self.say("")
         self.tell(f"To change the rules, edit {POLICY}, for example with: notepad {POLICY}")
         return True

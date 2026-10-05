@@ -84,6 +84,8 @@ planted lines: 22 (10 secret, 12 decoy)
 | wrong decision | Found, but blocked instead of warned, or the other way round. |
 | false alarm | A decoy reported as block or warn: a **false positive**. Too many, and people stop trusting the tool. |
 
+When TruffleHog, Semgrep and Bandit are installed (`make scanners`), more scorecards follow: one for all four scanners together, and one for each scanner alone, so you can see what each of them adds. TruffleHog runs there without asking any provider whether a key works, so the fake keys are never sent anywhere.
+
 The numbers are what really happens. We don't change the rules just to make them look better. A miss is a finding about the scanner: write it down in [Decisions](decisions.md).
 
 ## Same seed, same repo

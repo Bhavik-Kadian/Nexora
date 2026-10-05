@@ -91,6 +91,8 @@ Stay in the SecureGate folder, because it holds the rules, and point SecureGate 
 - `staged`: only the changes you are about to commit.
 - `range`: only some commits, for example `--mode range --range main..my-branch`.
 
+To run all four scanners, add `--scanners all`. Install the other three first, once, with `make scanners`. TruffleHog reads the history too and can ask the provider whether a key it finds still works; Semgrep and Bandit check the code itself.
+
 The first scan creates a `.securegate` folder holding a private key for fingerprints. Keep it. Git ignores it automatically.
 
 ## 6. See the results in your browser

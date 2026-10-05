@@ -279,9 +279,11 @@ def test_a_dashboard_that_cannot_start_says_why_and_the_menu_goes_on(folder: Pat
 
 def test_the_rules_are_listed_in_order_with_their_decisions() -> None:
     menu = run("4", "", "q")
-    listed = [line.split()[1:3] for line in menu.keyboard.shown if re.match(r"\s+\d+\. ", line)]
+    listed = [line.split()[:3] for line in menu.keyboard.shown if re.match(r"\s+\d+\. ", line)]
     policy = load_policy(POLICY_FILE)
-    assert listed == [[rule.decision.upper(), rule.name] for rule in policy.rules]
+    assert listed == [
+        [f"{rule.number}.", rule.decision.upper(), rule.name] for rule in policy.rules
+    ]  # numbered like the policy table, as in the reports
     assert "notepad policy.yaml" in menu.text
 
 

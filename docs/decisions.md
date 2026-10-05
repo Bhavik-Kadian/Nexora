@@ -5,7 +5,7 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 ## 1. Gitleaks finds, SecureGate decides
 - **Chose:** **Gitleaks** finds candidate secrets; our own `policy.yaml` decides what happens to them.
 - **Why:** Gitleaks already knows many key formats and is widely used. What we add is the decision and the safe reporting.
-- **Rejected:** writing our own detection rules for every provider; TruffleHog (out of scope for v0.1).
+- **Rejected:** writing our own detection rules for every provider; TruffleHog in v0.1 (it joined later as a second finder, see 45).
 
 ## 2. One readable policy, first match wins
 - **Chose:** rules checked from top to bottom; the first rule that matches decides.
@@ -18,8 +18,8 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Rejected:** a hidden default decision.
 
 ## 4. Rule order as specified
-- **Chose:** placeholders, then tests/fixtures/docs, then provider keys, then GitHub tokens, then everything else.
-- **Consequence:** a real AWS key inside `docs/` or `tests/` only warns. Move the provider rules up if that is not wanted.
+- **Chose:** the order of SecureGate's policy table: 1 a key confirmed live, 3 placeholders, 7 tests, fixtures, docs, Markdown and example files, 8 live provider keys, 9 test-mode keys, 10 passwords in the code, 13 risky handling, 14 everything else. (Until Layer 2 it was placeholders, tests/fixtures/docs, provider keys, GitHub tokens, everything else.)
+- **Consequence:** a real AWS key inside `docs/`, `tests/` or a `.md` file only warns, unless TruffleHog confirms that it is live. Move rule 7 below rule 8 if that is not wanted.
 
 ## 5. We mask values ourselves, in memory
 - **Chose:** Gitleaks reports raw values into a private temporary folder; we read them into memory, delete the folder, and **mask** them before anything is shown.
@@ -185,3 +185,42 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Why:** dark reads well on a laptop and on a projector in a dim room, and light paper is cheaper to print and easier to read. Downloads are made from the same checked report the pages show, never by handing out `findings.json` as it is, so they can only hold masked values and the fields SecureGate knows. In the CSV, a cell that starts with `=`, `+`, `-` or `@` gets an apostrophe in front, because spreadsheet programs run such cells as formulas (the usual advice against CSV injection); a masked private key starts with dashes. The JSON download is a SecureGate report, so the dashboard and `securegate summary` can open it.
 - **Severity dots** use status colours (critical red, high orange, medium amber, low and info grey), always next to the severity's name. The bars keep the one accent colour.
 - **Rejected:** making PDFs on the server (a new dependency such as WeasyPrint, while the browser's Save as PDF already does it); buttons that print or download with JavaScript (the dashboard forbids scripts); a light/dark switch (it needs JavaScript, or a setting to remember).
+
+## 43. Rules keep their number from the policy table
+- **Chose:** each rule in `policy.yaml` carries its `number` from SecureGate's 14-rule policy table, and every report names the rule that decided as "rule 8: provider-keys" (the `matched_rule` field). Numbers go up from top to bottom; gaps are allowed, because rules 2, 4, 5, 6, 11 and 12 come later. Error messages use the same numbers, such as `rule 10 ('hardcoded-passwords')`.
+- **Why:** the table is how the team talks about the policy, so a report and a conversation should use the same name. The `reason` still starts with the rule's name, so older readers keep working.
+- **Rejected:** numbering rules by their place in the file (adding one rule would renumber all the others).
+
+## 44. The live-key rule looks at the key, not at the scanner's rule
+- **Chose:** rule 8 matches the format of the value: `acme_live_`, `sk_live_` and `rk_live_`, AWS key ids (`AKIA` and its relatives), Bedrock keys, GitHub tokens (`ghp_`, `gho_`, `ghu_`, `ghs_`, `ghr_`, `github_pat_`) and private keys. Test-mode keys (`acme_test_`, `sk_test_`) only warn (rule 9).
+- **Why:** four scanners name their rules differently, but a live key looks the same to all of them. Gitleaks' Stripe rule also matches test keys, which cannot move real money. Everything that Layer 1 blocked by rule name is still blocked.
+- **Consequence:** a live key blocks as "high"; only a key that TruffleHog confirms is live is "critical" (rule 1).
+- **Rejected:** matching scanner rule names (they differ per scanner and mix live and test keys).
+
+## 45. TruffleHog is the second required scanner
+- **Chose:** `--scanners all` adds TruffleHog to Gitleaks. Like Gitleaks it is required: if it is asked for and is missing, crashes or writes something unreadable, the scan ends with exit code 2. It runs with `--no-ignore-tag` (a `trufflehog:ignore` comment cannot hide a finding), `--fail-on-scan-errors` (a partial scan is an error) and `--no-update` (it never replaces itself with a version nobody pinned). Only its `Raw` field is read, and only to mask it; the other fields that can hold the secret, and the text of its logs, are never kept. It only scans Git history, so it is skipped in `dir` and `staged` modes, and the default stays Gitleaks alone (the laptop gate stays fast).
+- **Why:** TruffleHog can ask the provider whether a key still works, which turns "looks like a key" into "is a live key" (rule 1).
+- **Tests** run it only with `--no-verification`, so a fake key is never sent to a real provider. `.trufflehog.yaml` adds a detector for ACME Pay tokens without a check address, so TruffleHog contacts nobody about them.
+- **Rejected:** `--fail` (its exit code 183 hides crashes among findings); reading TruffleHog's own `Redacted` text (it can show most of the key).
+
+## 46. One finding per secret and line
+- **Chose:** each scanner's finding is decided by the policy on its own; then the findings of the same key in the same file and commit become one, even if TruffleHog's line number is slightly off. A finding of Semgrep or Bandit is added to the secret found on its file and line, instead of becoming a finding of its own. The merged finding keeps the strongest decision (with that rule's reason and fix), the highest severity, the strongest live check, and every scanner that found it (`detectors`).
+- **Why:** one leak should be one line in the report, with every piece of evidence about it, not four lines from four tools.
+- **Rejected:** deciding once on a merged finding (a risky-handling warning on the same line as a placeholder would be lost).
+
+## 47. Pinned scanners, installed and checked by `make scanners`
+- **Chose:** the versions of TruffleHog, Semgrep and Bandit live in one place, the `env:` block at the top of the merge gate's workflow, and `CLAUDE.md` repeats them (a test checks that they match). `make scanners` installs Semgrep and Bandit into `.venv` with pip, and downloads TruffleHog from its GitHub release: the release's list of checksums must match a pinned SHA-256, the archive must match its line in that list, and only the program is taken out of the archive, into `.venv`'s scripts folder. SecureGate looks for programs on PATH and in that folder, never in the current folder.
+- **Why:** the laptop and GitHub run the same versions, and a download is checked before it runs.
+- **Rejected:** `curl | sh` install scripts (nothing is checked before it runs); winget (it has no TruffleHog package).
+
+## 48. Semgrep and Bandit read a private copy of the code, and are optional
+- **Chose:** `--scanners all` also runs Semgrep (Semgrep's p/secrets rules plus our own `rules/securegate-risky.yml`) and Bandit (its password checks B105, B106 and B107). They read code, not history: a private copy of the files the range changed, as they are at its end (in a repo scan, every tracked file at HEAD), taken from Git with `git archive`. Ignore files (`.semgrepignore`, `.gitignore`, `.bandit`) are left out of the copy and an empty `.semgrepignore` is written instead; Semgrep runs with `--disable-nosem` and Bandit with `--ignore-nosec`, so neither a file nor a comment in a pull request can hide code from them. If one of them fails or is missing, the scan goes on and the report records that it did not run. If p/secrets cannot be downloaded, Semgrep runs our own rules alone and the report says so.
+- **Why:** they add evidence that Gitleaks and TruffleHog cannot give: passwords next to their names, and code that leaks a secret into a log or a URL. But they look at code, not at secrets in history, so a pull request should not be stopped just because one of them could not run.
+- **Values:** only the rule, the file and the line are read from their output. Semgrep's `extra.lines` and `extra.message`, and Bandit's `code` and `issue_text`, quote the secret and are never kept: the value is cut out of our own copy (Semgrep) or out of Bandit's message, in memory, and masked at once. Our own Semgrep rules point at code, not at a secret, so their findings show `****` and nothing of the line.
+- **Rejected:** scanning the working tree (it may not be the commit being judged); letting Semgrep use the repository's ignore files; `python -m semgrep` (deprecated by Semgrep).
+
+## 49. One Markdown report for the pull request, and SARIF from our own findings
+- **Chose:** `securegate scan --comment FILE --summary FILE --sarif FILE`. The comment and the job summary are the same report from one template: a one-line verdict (BLOCKED, PASSED WITH WARNINGS, PASSED, or ERROR when the scan did not finish), a table (decision, rule, file and line, masked value, the scanners that found it, the live check), a rotation checklist for every blocked key (ACME Pay, Stripe, AWS, GitHub, private keys, or a general one) ending with "Deleting the line is not enough: the key stays in Git history.", why each warning was not blocked, and the ignored findings folded away. The comment starts with a hidden marker, so the workflow can update its own comment instead of adding one per run. A scanner that did not run shows as a red CAUTION note. The SARIF file has one rule per policy rule, with its severity, and only the blocks and warnings.
+- **Why:** everything a reviewer needs is in the pull request itself, in plain words. Building every output from `findings.json`, read back through the dashboard's check that every value is masked, means no output can hold more than that check let through, and every value is escaped so a file name cannot break the table or add HTML.
+- **Consequences:** after an error, the comment and summary say ERROR and any old SARIF file is deleted, because uploading an empty one would tell GitHub that every earlier alert was fixed. Long reports stop after 50 rows (GitHub refuses comments over 65,536 characters); `findings.json` keeps everything.
+- **Rejected:** uploading the scanners' own SARIF (it holds unmasked values and none of our decisions); a red text colour through GitHub's maths notation (it does not degrade gracefully where it is not rendered).

@@ -11,8 +11,17 @@ from textwrap import dedent
 import pytest
 import yaml
 
-from helpers import random_text
+from helpers import (
+    fake_acme_test_token,
+    fake_acme_token,
+    fake_aws_key_id,
+    fake_github_token,
+    fake_private_key,
+    fake_stripe_key,
+    random_text,
+)
 from securegate.errors import ConfigError, SecureGateError
+from securegate.finding import Validity
 from securegate.policy import (
     Conditions,
     Policy,
@@ -26,20 +35,36 @@ from securegate.policy import (
 
 DEFAULT_POLICY = Path(__file__).resolve().parents[1] / "policy.yaml"
 
-PROVIDER_RULES = [
-    "acme-pay-token",
-    "aws-access-token",
-    "aws-amazon-bedrock-api-key-long-lived",
-    "aws-amazon-bedrock-api-key-short-lived",
-    "stripe-access-token",
-    "private-key",
-]
-GITHUB_RULES = [
-    "github-pat",
-    "github-fine-grained-pat",
-    "github-oauth",
-    "github-app-token",
-    "github-refresh-token",
+# Live-mode key formats, built at runtime. Rule 8 looks at the value itself, so it does not
+# matter which scanner rule reported it.
+LIVE_KEYS: dict[str, Callable[[], str]] = {
+    "acme-live": fake_acme_token,
+    "stripe-secret": fake_stripe_key,
+    "stripe-restricted": lambda: fake_stripe_key(kind="rk"),
+    "aws-akia": fake_aws_key_id,
+    "aws-asia": lambda: fake_aws_key_id("ASIA"),
+    "bedrock-long-lived": lambda: "ABSK" + random_text(40),
+    "bedrock-short-lived": lambda: "bedrock-" + "api-key-" + random_text(40),
+    "github-pat": fake_github_token,
+    "github-oauth": lambda: fake_github_token("gho"),
+    "github-app": lambda: fake_github_token("ghs"),
+    "github-fine-grained": lambda: "github_" + "pat_" + random_text(60),
+    "private-key": fake_private_key,
+}
+TEST_MODE_KEYS: dict[str, Callable[[], str]] = {
+    "acme-test": fake_acme_test_token,
+    "stripe-test": lambda: fake_stripe_key("test"),
+    "stripe-restricted-test": lambda: fake_stripe_key("test", kind="rk"),
+}
+SHIPPED_RULES = [
+    (1, "verified-live"),
+    (3, "placeholders"),
+    (7, "tests-fixtures-docs"),
+    (8, "provider-keys"),
+    (9, "test-mode-keys"),
+    (10, "hardcoded-passwords"),
+    (13, "risky-handling"),
+    (14, "everything-else"),
 ]
 
 
@@ -55,6 +80,7 @@ def verdict_for(
     path: str = "app/config.py",
     value: str | None = None,
     entropy: float = 4.5,
+    validity: Validity = "not_checked",
 ) -> Verdict:
     return decide(
         policy,
@@ -62,6 +88,7 @@ def verdict_for(
         path=path,
         value=random_text(32) if value is None else value,
         entropy=entropy,
+        validity=validity,
     )
 
 
@@ -76,14 +103,21 @@ def policy_from(text: str) -> Policy:
 # --- the shipped default policy --------------------------------------------------------------
 
 
-def test_shipped_policy_loads_with_rules_in_order(policy: Policy) -> None:
-    assert [rule.name for rule in policy.rules] == [
-        "placeholders",
-        "tests-fixtures-docs",
-        "provider-keys",
-        "github-tokens",
-        "everything-else",
-    ]
+def test_shipped_policy_loads_with_numbered_rules_in_order(policy: Policy) -> None:
+    assert [(rule.number, rule.name) for rule in policy.rules] == SHIPPED_RULES
+
+
+@pytest.mark.parametrize("path", ["app/payments.py", "tests/test_pay.py", "docs/keys.md"])
+def test_rule_1_a_key_confirmed_live_blocks_as_critical_anywhere(policy: Policy, path: str) -> None:
+    verdict = verdict_for(policy, rule_id="trufflehog-stripe", path=path, validity="verified")
+    assert outcome(verdict) == ("verified-live", "block", "critical")
+    assert verdict.label == "rule 1: verified-live"
+
+
+@pytest.mark.parametrize("validity", ["unknown", "unverified", "not_checked"])
+def test_rule_1_needs_a_confirmed_live_key(policy: Policy, validity: str) -> None:
+    verdict = verdict_for(policy, rule_id="trufflehog-stripe", validity=validity)
+    assert verdict.rule_name != "verified-live"
 
 
 PLACEHOLDERS: dict[str, Callable[[], str]] = {
@@ -117,34 +151,75 @@ def test_placeholders_are_ignored_even_under_provider_rules(
     ],
 )
 def test_tests_fixtures_and_docs_paths_warn(policy: Policy, path: str) -> None:
-    verdict = verdict_for(policy, rule_id="aws-access-token", path=path)
-    assert outcome(verdict) == ("tests-fixtures-docs", "warn", "low")
+    verdict = verdict_for(policy, rule_id="aws-access-token", path=path, value=fake_aws_key_id())
+    assert outcome(verdict) == ("tests-fixtures-docs", "warn", "medium")
+
+
+@pytest.mark.parametrize("path", ["README.md", "documentation.md", ".env.example", "a/b.example"])
+def test_markdown_and_example_files_warn_like_docs(policy: Policy, path: str) -> None:
+    verdict = verdict_for(policy, rule_id="stripe-access-token", path=path, value=fake_stripe_key())
+    assert outcome(verdict) == ("tests-fixtures-docs", "warn", "medium")
 
 
 @pytest.mark.parametrize(
-    "path", ["contests/entry.py", "src/testsuite.py", "documentation.md", "docs.py"]
+    "path", ["contests/entry.py", "src/testsuite.py", "docs.py", "app/example.py", "md/a.py"]
 )
 def test_lookalike_paths_are_not_treated_as_tests_or_docs(policy: Policy, path: str) -> None:
-    verdict = verdict_for(policy, rule_id="aws-access-token", path=path)
+    verdict = verdict_for(policy, rule_id="aws-access-token", path=path, value=fake_aws_key_id())
     assert verdict.rule_name == "provider-keys"
 
 
-@pytest.mark.parametrize("rule_id", PROVIDER_RULES)
-def test_provider_keys_block_as_critical(policy: Policy, rule_id: str) -> None:
+@pytest.mark.parametrize("make_value", LIVE_KEYS.values(), ids=LIVE_KEYS.keys())
+@pytest.mark.parametrize("rule_id", ["generic-api-key", "trufflehog-stripe", "bandit-B105"])
+def test_rule_8_live_key_formats_block_as_high(
+    policy: Policy, make_value: Callable[[], str], rule_id: str
+) -> None:
+    verdict = verdict_for(policy, rule_id=rule_id, value=make_value())
+    assert outcome(verdict) == ("provider-keys", "block", "high")
+    assert verdict.label == "rule 8: provider-keys"
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param(lambda: "ASIAN" + random_text(20), id="aws-prefix-in-a-word"),
+        pytest.param(lambda: "x_" + fake_stripe_key(), id="stripe-not-at-start"),
+        pytest.param(lambda: "ghx_" + random_text(36), id="unknown-github-prefix"),
+    ],
+)
+def test_rule_8_needs_the_format_at_the_start(policy: Policy, value: Callable[[], str]) -> None:
+    verdict = verdict_for(policy, rule_id="trufflehog-unknown", value=value())
+    assert verdict.rule_name != "provider-keys"
+
+
+@pytest.mark.parametrize("make_value", TEST_MODE_KEYS.values(), ids=TEST_MODE_KEYS.keys())
+def test_rule_9_test_mode_keys_warn(policy: Policy, make_value: Callable[[], str]) -> None:
+    verdict = verdict_for(policy, rule_id="stripe-access-token", value=make_value())
+    assert outcome(verdict) == ("test-mode-keys", "warn", "medium")
+
+
+@pytest.mark.parametrize(
+    "rule_id", ["bandit-B105", "bandit-B106", "bandit-B107", "generic-api-key"]
+)
+def test_rule_10_hardcoded_passwords_warn(policy: Policy, rule_id: str) -> None:
     verdict = verdict_for(policy, rule_id=rule_id)
-    assert outcome(verdict) == ("provider-keys", "block", "critical")
+    assert outcome(verdict) == ("hardcoded-passwords", "warn", "medium")
 
 
-@pytest.mark.parametrize("rule_id", GITHUB_RULES)
-def test_github_tokens_block_as_high(policy: Policy, rule_id: str) -> None:
+@pytest.mark.parametrize(
+    "rule_id",
+    ["securegate-secret-logged", "securegate-secret-in-url", "securegate-getenv-default"],
+)
+def test_rule_13_risky_handling_warns_low(policy: Policy, rule_id: str) -> None:
     verdict = verdict_for(policy, rule_id=rule_id)
-    assert outcome(verdict) == ("github-tokens", "block", "high")
+    assert outcome(verdict) == ("risky-handling", "warn", "low")
 
 
-@pytest.mark.parametrize("rule_id", ["generic-api-key", "slack-bot-token", "jwt"])
-def test_everything_else_warns(policy: Policy, rule_id: str) -> None:
+@pytest.mark.parametrize("rule_id", ["slack-bot-token", "jwt", "trufflehog-slack"])
+def test_rule_14_everything_else_warns(policy: Policy, rule_id: str) -> None:
     verdict = verdict_for(policy, rule_id=rule_id)
     assert outcome(verdict) == ("everything-else", "warn", "medium")
+    assert verdict.label == "rule 14: everything-else"
 
 
 def test_first_match_wins_placeholder_in_tests_is_ignored(policy: Policy) -> None:
@@ -155,12 +230,19 @@ def test_first_match_wins_placeholder_in_tests_is_ignored(policy: Policy) -> Non
 
 
 def test_first_match_wins_provider_key_in_docs_only_warns(policy: Policy) -> None:
-    verdict = verdict_for(policy, rule_id="aws-access-token", path="docs/aws-setup.md")
-    assert outcome(verdict) == ("tests-fixtures-docs", "warn", "low")
+    verdict = verdict_for(
+        policy, rule_id="aws-access-token", path="docs/aws-setup.md", value=fake_aws_key_id()
+    )
+    assert outcome(verdict) == ("tests-fixtures-docs", "warn", "medium")
+
+
+def test_first_match_wins_test_mode_key_in_tests_is_a_tests_warning(policy: Policy) -> None:
+    verdict = verdict_for(policy, path="demo-app/tests/test_pay.py", value=fake_acme_test_token())
+    assert outcome(verdict) == ("tests-fixtures-docs", "warn", "medium")
 
 
 def test_verdict_names_the_rule_and_says_what_to_do(policy: Policy) -> None:
-    verdict = verdict_for(policy, rule_id="stripe-access-token")
+    verdict = verdict_for(policy, rule_id="stripe-access-token", value=fake_stripe_key())
     assert verdict.reason.startswith("provider-keys: ")
     assert "Rotate" in verdict.remediation
 
@@ -421,7 +503,94 @@ INVALID_POLICIES = [
         "'reason' must be text",
         id="reason-not-text",
     ),
+    pytest.param(
+        "version: 1\nrules:\n  - number: eight\n    name: x\n    decision: warn\n    severity: low",
+        "'number' must be a whole number",
+        id="number-text",
+    ),
+    pytest.param(
+        "version: 1\nrules:\n  - number: 0\n    name: x\n    decision: warn\n    severity: low",
+        "'number' must be a whole number",
+        id="number-zero",
+    ),
+    pytest.param(
+        "version: 1\nrules:\n  - number: true\n    name: x\n    decision: warn\n    severity: low",
+        "'number' must be a whole number",
+        id="number-bool",
+    ),
+    pytest.param(
+        "version: 1\nrules:\n  - number: 3\n    name: x\n    when: {rule_ids: [jwt]}\n"
+        "    decision: warn\n    severity: low" + CATCH_ALL,
+        "either every rule has a 'number' or none does; missing on: rest",
+        id="number-missing-on-one-rule",
+    ),
+    pytest.param(
+        "version: 1\nrules:\n  - number: 8\n    name: x\n    when: {rule_ids: [jwt]}\n"
+        "    decision: warn\n    severity: low\n  - number: 3\n    name: rest\n"
+        "    decision: warn\n    severity: medium",
+        "rule numbers must go up from top to bottom",
+        id="numbers-going-down",
+    ),
+    pytest.param(
+        "version: 1\nrules:\n  - name: x\n    when: {validity: [verifed]}\n"
+        "    decision: block\n    severity: critical" + CATCH_ALL,
+        "validity 'verifed' is unknown (did you mean 'verified'?)",
+        id="unknown-validity",
+    ),
 ]
+
+
+def test_numbered_rules_are_labelled_and_may_skip_numbers() -> None:
+    policy = policy_from(
+        """
+        version: 1
+        rules:
+          - number: 3
+            name: jwt
+            when: {rule_ids: [jwt]}
+            decision: warn
+            severity: low
+          - number: 14
+            name: rest
+            decision: warn
+            severity: medium
+        """
+    )
+    labels = [verdict_for(policy, rule_id=r).label for r in ("jwt", "generic-api-key")]
+    assert labels == ["rule 3: jwt", "rule 14: rest"]
+
+
+def test_errors_point_at_a_rule_by_its_table_number_or_its_place() -> None:
+    unnumbered = "version: 1\nrules:\n  - name: x\n    decision: stop\n    severity: low"
+    numbered = unnumbered.replace("  - name: x", "  - number: 10\n    name: x")
+    with pytest.raises(ConfigError, match=re.escape("rule 10 ('x'): 'decision' must be one of")):
+        policy_from(numbered)
+    with pytest.raises(ConfigError, match=re.escape("rule #1 ('x'): 'decision' must be one of")):
+        policy_from(unnumbered)
+
+
+def test_unnumbered_rules_are_labelled_by_name() -> None:
+    policy = policy_from("version: 1\nrules:" + CATCH_ALL)
+    assert verdict_for(policy).label == "rest"
+
+
+def test_validity_condition_matches_only_the_listed_results() -> None:
+    policy = policy_from(
+        """
+        version: 1
+        rules:
+          - name: live
+            when: {validity: [verified, unknown]}
+            decision: block
+            severity: critical
+          - name: rest
+            decision: warn
+            severity: medium
+        """
+    )
+    validities: tuple[Validity, ...] = ("verified", "unknown", "unverified", "not_checked")
+    names = [verdict_for(policy, validity=v).rule_name for v in validities]
+    assert names == ["live", "live", "rest", "rest"]
 
 
 @pytest.mark.parametrize(("text", "message"), INVALID_POLICIES)

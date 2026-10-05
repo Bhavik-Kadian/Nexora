@@ -11,6 +11,7 @@ from pathlib import Path
 from securegate import __version__
 from securegate.errors import ConfigError
 from securegate.finding import DECISIONS, Finding
+from securegate.scanners.common import ScannerRun
 
 SCHEMA_VERSION = 1
 COLUMNS = ("DECISION", "RULE", "FILE:LINE", "VALUE")
@@ -58,9 +59,11 @@ def envelope(
     scanner_version: str | None,
     findings: Sequence[Finding] | None = None,
     error: str | None = None,
+    scanner_runs: Sequence[ScannerRun] | None = None,
 ) -> dict[str, object]:
     """The findings.json content. An error report has no "findings" key, so nobody can
-    mistake a failed scan for a clean one."""
+    mistake a failed scan for a clean one. "scanner" names Gitleaks, as before; "scanners"
+    lists every scanner and how it fared."""
     data: dict[str, object] = {
         "tool": "securegate",
         "version": __version__,
@@ -74,6 +77,8 @@ def envelope(
         "scanner": {"name": "gitleaks", "version": scanner_version},
         "policy": policy_path,
     }
+    if scanner_runs is not None:
+        data["scanners"] = [run.to_dict() for run in scanner_runs]
     if error is not None or findings is None:
         data["error"] = error or "unknown error"
         return data
@@ -85,13 +90,17 @@ def envelope(
 
 def write_json(path: Path, data: dict[str, object]) -> None:
     """Write JSON atomically, so a half-written findings.json is never left behind."""
+    write_text(path, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
+
+def write_text(path: Path, text: str) -> None:
+    """Write a file atomically: readers see the old file or the whole new one, never half."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-                json.dump(data, handle, indent=2, ensure_ascii=False)
-                handle.write("\n")
+                handle.write(text)
             os.replace(temp_name, path)
         except BaseException:
             Path(temp_name).unlink(missing_ok=True)

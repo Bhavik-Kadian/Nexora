@@ -42,6 +42,8 @@ If the report is missing or broken, the dashboard says so and shows the exact co
 - for a blocked key: revoke it at the provider, create a new one, store it in a secret manager, then remove it from the code;
 - for a warning or an ignored finding: why it was not blocked, and what to do if it turns out to be real.
 
+The fields include **Found by** (every scanner that found it), **Live check** (whether TruffleHog confirmed with the provider that the key works) and **Policy rule** (the numbered rule that decided, such as `rule 8: provider-keys`).
+
 If the same secret was found in several places, every place is listed. An id that is not in the report shows a "Not found" page.
 
 Example: `/findings/dcc7b5bbfe3c` is the Stripe key from the demo's deleted script. It shows `sk_l****562d`, a BLOCK badge and four steps, starting with "Revoke it at the provider. In the Stripe Dashboard, open Developers > API keys and roll this key".
@@ -56,7 +58,7 @@ The buttons at the top of the Overview and Findings pages download what SecureGa
 |---|---|---|
 | CSV | `findings-demo.csv` | One row per finding, for Excel or another spreadsheet: decision, severity, rule, file, line, masked value, policy rule, reason, fix, commit, author, date, confidence, entropy, detector, id and fingerprint. |
 | JSON | `findings-demo.json` | The same findings as a SecureGate report, for other programs. The dashboard and `securegate summary` can open it too. |
-| Markdown summary | `findings-demo-summary.md` | The short summary that the merge gate shows on GitHub: the blocked findings and warnings, with why and how to fix. Paste it into a ticket or a pull request. |
+| Markdown summary | `findings-demo-summary.md` | The report the merge gate shows on GitHub and posts on the pull request: the verdict, the findings table, a checklist to rotate every blocked key, and why each warning was not blocked. Paste it into a ticket or a pull request. |
 | Printable report | | Opens the Report page. |
 
 On the Findings page, CSV and JSON download only the findings shown: with the filter set to Block, you get `findings-demo-block.csv` with the blocked findings only. The file names come from the report's name.

@@ -24,6 +24,11 @@ compare masked values, counts or booleans instead.
 ## Commands
 - `make setup`; `make check` (lint + test, before every commit); `make test`; `make lint`
 - `make demo` + `make scan-demo`: demo repo in ../securegate-demo; exit 1 is expected there
+- `securegate scan --scanners all` adds TruffleHog (required: if it fails, exit 2), Semgrep and
+  Bandit (optional: if one fails, the scan goes on and records "did not run"); tests run
+  TruffleHog only with `--no-verification`, so fake keys are never sent to providers.
+  `--comment/--summary/--sarif FILE` are built from findings.json read back through
+  load_report (masked only); no SARIF is written after an error
 - `make ui`: read-only dashboard (127.0.0.1, masked values, no JavaScript; dark, light in print;
   design values only in src/securegate/ui/static/css/tokens.css). Downloads (CSV/JSON/Markdown)
   and /report are built from the checked ReportView only. `make sample-report`: sample_findings.json
@@ -37,6 +42,9 @@ compare masked values, counts or booleans instead.
 
 ## Environment
 - Gitleaks 8.30.1 (winget). Use only flags listed by `gitleaks git --help` / `gitleaks dir --help`.
+- TruffleHog 3.97.9, Semgrep 1.179.0, Bandit 1.9.4: `make scanners` installs them into .venv at the
+  versions pinned in the workflow's top `env:` block (tools/install_scanners.py reads them there).
+  Use only flags their `--help` lists. gh 2.102.0 (winget).
 - Python 3.12.10 in .venv, GNU Make 4.4.1 (winget ezwinports.make), Git 2.55, Windows 11.
 - actionlint 1.7.12 (winget) for the workflow; headless Edge builds the PDFs.
 
