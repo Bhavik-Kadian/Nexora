@@ -31,6 +31,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `scanners/changes.py` | Copies the code Semgrep and Bandit read into a private folder: in a range scan, the files the range changed, as they are at its end. |
 | `scanners/semgrep.py` | Runs Semgrep with p/secrets and SecureGate's own rules on that copy. If it fails, the scan goes on and says Semgrep did not run. |
 | `scanners/bandit.py` | Runs Bandit's password checks (B105, B106, B107) on the Python files of that copy. Optional, like Semgrep. |
+| `scanners/versions.py` | The versions of TruffleHog, Semgrep and Bandit, for `securegate version` and the menu. |
 | `pipeline.py` | The only place raw secrets pass through. It turns each one into a masked finding, then merges findings. |
 | `merge.py` | Turns findings of the same secret or line into one, keeping the strongest decision and every scanner that found it. |
 | `entropy.py` | Measures how random a value looks. |
@@ -42,7 +43,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `outputs/` | The reports besides `findings.json`: the pull request comment and the job summary (one template, `outputs/templates/report.md.j2`; `securegate summary` prints it), the checklists to rotate a blocked key (`outputs/rotation.py`) and SARIF for GitHub's Security tab (`outputs/sarif.py`). All are made from `findings.json` read back through the dashboard's check that every value is masked. |
 | `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. |
 | `ui/` | The read-only dashboard: `app.py` (the pages and downloads), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `export.py` (the CSV and JSON downloads), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/` (a dark theme, light when printed). |
-| `menu/` | The menu that `Start SecureGate.cmd` and `make menu` open: `app.py` (the screen and the choices; each choice runs a `securegate` command and shows it first), `art.py` (the padlock and the big letters) and `terminal.py` (colours, only in a real terminal). |
+| `menu/` | The menu that `Start SecureGate.cmd` and `make menu` open: `app.py` (the screen and the choices; each choice runs a `securegate` command and shows it first, and choice 3 shows the pull request comment in the terminal), `art.py` (the padlock and the big letters) and `terminal.py` (colours, only in a real terminal). |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
 | `scanners/common.py`, `scanners/candidate.py` | What the scanner adapters share: running a program, reading its flags, the raw finding. |
 
@@ -107,7 +108,7 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change the "How to fix" advice | `src/securegate/ui/fixes.py` |
 | change what the check on pull requests does | `.github/workflows/secret-gate.yml` (see [The two gates](merge-gate.md)) |
 | change the check before each commit | `.pre-commit-config.yaml` and `tools/precommit_hook.py` |
-| change the menu's choices, or what they run | `src/securegate/menu/app.py` (`tests/test_menu.py` checks that every command it runs exists) |
+| change the menu's choices, or what they run | `src/securegate/menu/app.py` (`tests/test_menu.py` checks that every command it runs exists, and that choice 2 runs what `make scan-demo-all` runs) |
 | change the art on the menu's first screen, or its colours | `src/securegate/menu/art.py` |
 | change what double-clicking `Start SecureGate.cmd` does before the menu opens | `Start SecureGate.cmd` (a Windows batch file; `tests/test_launcher.py` checks the commands it runs) |
 | update the PDF copies of these pages | edit the `.md` page, then run `make docs-pdf` (`tools/docs_pdf.py`) |

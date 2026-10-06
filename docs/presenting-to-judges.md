@@ -19,9 +19,11 @@ Type each command into **PowerShell**, in the project folder (see "Where do I ty
 
 Short on time? Run `make demo` before you start, then show steps 1, 3, 5 and 6 (about 7 minutes).
 
+Prefer one window, and no commands to type? SecureGate's menu runs steps 2 to 5 for you: see "Present it from the menu" below.
+
 ## Where does it start?
 
-**The one-click way:** double-click `Start SecureGate.cmd` in the project folder. SecureGate opens in its own window: a padlock, its name in big letters, what is ready, and a menu. Type a number and press Enter. **1** builds the demo project (the first time only) and scans it, like `make demo` and `make scan-demo`. Press Enter after the scan to open the dashboard in your browser, like `make ui`, and press Enter in the window again to close the dashboard. **2** scans another project, **3** opens the dashboard on the last scan, **4** shows the rules, **5** builds the demo project again from scratch, **6** checks the setup, and **Q** closes the window. If SecureGate is not set up yet, it offers to do that first.
+**The one-click way:** double-click `Start SecureGate.cmd` in the project folder. SecureGate opens in its own window: a padlock, its name in big letters, what is ready, and a menu. Type a number and press Enter. **1** builds the demo project (the first time only) and scans it with Gitleaks, like `make demo` and `make scan-demo`. **2** scans it with all four scanners, like `make scan-demo-all`, and then shows the comment a pull request would get on GitHub. After a scan, press Enter to open the dashboard in your browser, like `make ui`, and press Enter in the window again to close the dashboard. **3** shows the pull request comment again, **4** scans another project, **5** opens the dashboard on the last scan, **6** shows the rules, **7** builds the demo project again from scratch, **8** checks the setup, and **Q** closes the window. If SecureGate is not set up yet, it offers to do that first.
 
 Under the hood, SecureGate is a **command-line program**: you type a command, it does its job, prints the result and stops. Only the dashboard keeps running, and you look at it in your web browser. The menu just types the commands for you: it shows each one, such as `> securegate scan ..\securegate-demo --mode repo --out findings-demo.json`, before running it.
 
@@ -44,6 +46,23 @@ Under the hood, SecureGate is a **command-line program**: you type a command, it
 | `make docs-pdf` | `.venv\Scripts\python.exe tools\docs_pdf.py` | rebuilds the PDFs in `docs\pdf` |
 
 If `make` ever stops working, type the command from the middle column instead: it does exactly the same.
+
+## Present it from the menu
+
+Rather not type commands in front of the judges? Steps 2 to 5 can all be run from SecureGate's menu, in one window. Double-click `Start SecureGate.cmd`, maximize the window and make the text bigger (hold Ctrl and turn the mouse wheel). Each choice shows the command it runs, on a line starting with `>`, so the judges still see the real command, and the results are exactly those of the `make` commands in the steps below: their "Point at" and "Say" tips still apply.
+
+| Step | Type | What the judges see |
+|---|---|---|
+| 2 | **7**, then **y** | The demo project is built again, exactly as new, as with `make demo`. Skip this if it is already built: **1** and **2** build it by themselves the first time. |
+| 3 | **1** | The Gitleaks scan: the same table and `Blocked:` list as `make scan-demo`. The menu then waits at `Open the results in the dashboard?`. Talk about the table first, then type **n** to go back to the menu. |
+| 3 | **2** | The scan with all four scanners, as with `make scan-demo-all`. The menu waits at `Show the comment a pull request would get?`: talk about the table and the `Scanners:` line first, then press Enter. The comment appears in the window; scroll up to its first line, `SecureGate: BLOCKED (exit code 1)`, and walk through it. Then type **n** at `Open the results in the dashboard?`. |
+| 3 | **3** | The pull request comment again, at any time. |
+| 4 | **6** | The rules in `policy.yaml`, top to bottom, each with its number, decision and reason. |
+| 5 | **5** | The dashboard, on the last scan. Press Enter in the menu's window to close it and go back to the menu. |
+
+A few things are not in the menu: `git log` in step 2, changing `policy.yaml` in step 4 (choice 6 shows the rules; it does not change them), the commit in step 6, the GitHub page in step 7 and `make test` in step 8. Open a second PowerShell window in the project folder for them before you start.
+
+Right before you start, choose **8**: it shows the versions of SecureGate and its four scanners, the rules, whether the laptop gate is on and whether the demo project is built. On the first screen, the **Scanners** line says `all four ready` when choice 2 can run. If it says `Gitleaks only`, run `make scanners` once (it needs the internet), or show choice 1 only.
 
 ## Where do I type the commands?
 
@@ -103,7 +122,7 @@ Do this with the internet on. Then rehearse the whole demo once, with a timer.
 .venv\Scripts\securegate version
 ```
 
-It prints `securegate 0.1.0` and `gitleaks 8.30.1`. If it says `gitleaks not found`, or PowerShell does not recognize `.venv\Scripts\securegate`, follow steps 1 and 3 of [Getting started](getting-started.md).
+It prints `securegate 0.1.0` and `gitleaks 8.30.1`, then a line for each of the other three scanners: `trufflehog 3.97.9`, `semgrep 1.179.0` and `bandit 1.9.4` once step 2 has installed them, `not found` before. If it says `gitleaks not found`, or PowerShell does not recognize `.venv\Scripts\securegate`, follow steps 1 and 3 of [Getting started](getting-started.md).
 
 2. Install the other three scanners, for step 3 (once; needs the internet):
 
@@ -119,7 +138,7 @@ It ends with `Semgrep 1.179.0 and Bandit 1.9.4: installed`. Then try `make scan-
 make check
 ```
 
-It takes about a minute and ends with a line like `732 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
+It takes about a minute and ends with a line like `746 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
 
 4. Turn on the laptop gate, for step 6:
 
@@ -147,9 +166,9 @@ You need a GitHub account and about 15 minutes.
 
 1. Turn on **Do not disturb** in Windows, and close the apps you don't need.
 2. Open PowerShell in the project folder and make the text bigger.
-3. Check that Gitleaks is found: `.venv\Scripts\securegate version` prints `gitleaks 8.30.1`. For `make scan-demo-all`, `.venv\Scripts\trufflehog.exe --version` prints `trufflehog 3.97.9`.
+3. Check the scanners: `.venv\Scripts\securegate version` prints `gitleaks 8.30.1`, `trufflehog 3.97.9`, `semgrep 1.179.0` and `bandit 1.9.4`.
 4. Check that the laptop gate is on: `Test-Path .git\hooks\pre-commit` prints `True`. If it prints `False`, run `make hooks` (needs the internet) or skip step 6.
-   Or check steps 3 and 4 in one go: double-click `Start SecureGate.cmd` and choose 6.
+   Or check steps 3 and 4 in one go: double-click `Start SecureGate.cmd` and choose 8. If you present from the menu, keep that window open.
 5. For step 7, open the pull request in a browser tab.
 6. Type `cls` to clear the screen.
 
@@ -325,7 +344,7 @@ Show, in this order:
 
 > The dashboard is read-only and runs only on this laptop: 127.0.0.1 means "this computer", so nobody else on the network can open it. It needs no internet, and its pages contain no JavaScript. It checks every value again before showing it: a report that holds an unmasked value is refused, never shown, and never downloaded. The downloads and the printed report only ever hold masked values too.
 
-To stop the dashboard, click in PowerShell and press **Ctrl+C**. Tip: to keep it open for the rest of the demo, run `make ui` in a second PowerShell window instead. In SecureGate's menu, 3 opens the dashboard, and Enter in the menu's window closes it.
+To stop the dashboard, click in PowerShell and press **Ctrl+C**. Tip: to keep it open for the rest of the demo, run `make ui` in a second PowerShell window instead. In SecureGate's menu, 5 opens the dashboard, and Enter in the menu's window closes it.
 
 ### Step 6. The laptop gate stops a commit (1 to 2 minutes)
 
@@ -397,7 +416,7 @@ No internet? Show your screenshots, `reports\demo-comment.md` from step 3, or `d
 make test
 ```
 
-After about a minute, the judges see the scorecards, and then the last line: `732 passed, 1 skipped`.
+After about a minute, the judges see the scorecards, and then the last line: `746 passed, 1 skipped`.
 
 ```
 repo mode, seed 42
@@ -459,7 +478,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **Does it need the internet?** No. Scans, the dashboard and the laptop gate work offline. Only the merge gate needs GitHub. Semgrep downloads its p/secrets rules; without the internet it runs SecureGate's own rules and says so.
 
-**What is it built with?** Python 3.12; Gitleaks 8.30.1, TruffleHog 3.97.9, Semgrep 1.179.0 and Bandit 1.9.4 for finding; Flask for the dashboard; pre-commit for the laptop gate; and GitHub Actions for the merge gate, with 733 automatic tests.
+**What is it built with?** Python 3.12; Gitleaks 8.30.1, TruffleHog 3.97.9, Semgrep 1.179.0 and Bandit 1.9.4 for finding; Flask for the dashboard; pre-commit for the laptop gate; and GitHub Actions for the merge gate, with 747 automatic tests.
 
 ## If something goes wrong
 
@@ -468,6 +487,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | `make : The term 'make' is not recognized` | Close PowerShell and open it again. If it still happens, type the command from the middle column of the table in "Where does it start?". |
 | `make scan-demo` ends with `Error 1` | Nothing: that is expected. It means secrets were found and blocked. |
 | `make scan-demo-all` ends with `Error 2` and `TruffleHog was not found` | Run `make scanners` once (needs the internet), or show `make scan-demo` instead. |
+| The menu's choice 2 says it needs TruffleHog, Semgrep and Bandit | The same: run `make scanners` once, then open the menu again. Or show choice 1 instead. |
 | The `Scanners:` line says Semgrep could not load p/secrets | There is no internet, so Semgrep ran SecureGate's own rules only. That is expected offline; the scan still counts. |
 | `Error 2`, or a line starting with `securegate: error:` | SecureGate could not do its job, and the line says why. Often Gitleaks is not found: run `.venv\Scripts\securegate version`. If it says `gitleaks not found`, close PowerShell and open it again, or install Gitleaks again (step 1 of [Getting started](getting-started.md)). |
 | `.venv\Scripts\securegate` is not recognized | You are in the wrong folder (check with `Test-Path Makefile`), or SecureGate is not installed yet: run `make setup` (needs the internet). |
@@ -486,7 +506,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | Where | What it is |
 |---|---|
 | `Makefile` | the shortcut commands (`make ...`) |
-| `Start SecureGate.cmd` | double-click it to open SecureGate's menu: scan the demo or another project, open the dashboard, see the rules |
+| `Start SecureGate.cmd` | double-click it to open SecureGate's menu: scan the demo (with one scanner or all four) or another project, show the pull request comment, open the dashboard, see the rules |
 | `.venv\` | SecureGate and its tools, installed by `make setup`. The program is `.venv\Scripts\securegate.exe`. |
 | `src/securegate/` | the program's code. Every command starts in `cli.py`. |
 | `policy.yaml` | the rules: block, warn or ignore |
