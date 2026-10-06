@@ -38,6 +38,9 @@ compare masked values, counts or booleans instead.
   workflow that uses it. Repos: origin = Bhavik-Kadian/SecureGate (work), nexora = Bhavik-Kadian/
   Nexora (stores every branch; main goes there as build-main; never overwrite its main)
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
+- `make demo-clean|demo-leak|demo-deleted|demo-decoys|demo-risky` (`securegate demo-pr`): a demo PR on
+  origin, built in a temp worktree from origin/main (clean tree + gh login needed; only demo/
+  branches). `make demo-cleanup` closes them all; `make doctor` checks readiness; `make ci-report`
 - `make menu` (`securegate menu`): the interactive menu in src/securegate/menu/ (art, colour only in
   a real terminal). Each choice runs a securegate command; Enter closes its dashboard. Q = exit 0.
   2 = `make scan-demo-all` (a test compares them), then the PR comment in the terminal; 3 shows it

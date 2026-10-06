@@ -32,7 +32,7 @@ version = { attr = "securegate.__version__" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-"securegate.demo" = ["catalog.yaml", "templates/*.j2"]
+"securegate.demo" = ["catalog.yaml", "templates/*.j2", "pr_templates/*.j2"]
 "securegate.ui" = ["templates/*.html", "static/css/*.css"]
 "securegate.outputs" = ["templates/*.j2"]
 
