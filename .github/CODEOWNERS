@@ -1,0 +1,12 @@
+# Code owners: GitHub asks these people to review a pull request that changes the files below.
+#
+# These files decide what the merge gate does: the workflow itself, and the rules it judges with.
+# A review only becomes required when the main ruleset ticks "Require review from Code Owners".
+# That needs a second maintainer, because nobody can approve their own pull request, so it stays
+# off for now. See docs/limitations.md.
+
+/.github/          @Bhavik-Kadian
+/policy.yaml       @Bhavik-Kadian
+/.gitleaks.toml    @Bhavik-Kadian
+/.trufflehog.yaml  @Bhavik-Kadian
+/rules/            @Bhavik-Kadian

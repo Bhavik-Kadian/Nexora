@@ -1,6 +1,6 @@
 # Presenting SecureGate to judges
 
-This page is your script for showing SecureGate live: what to prepare, what to type, what the judges will see and what to say. The full demo takes about 12 minutes. Everything except the GitHub part works without the internet.
+This page is your script for showing SecureGate live: what to prepare, what to type, what the judges will see and what to say. The full demo takes about 13 minutes. Everything except the GitHub part works without the internet.
 
 Type each command into **PowerShell**, in the project folder (see "Where do I type the commands?" below). Copy one block at a time. The quoted boxes are what to say: put them in your own words.
 
@@ -14,16 +14,16 @@ Type each command into **PowerShell**, in the project folder (see "Where do I ty
 | 4 | The rules, in one readable file | `notepad policy.yaml` | 1 min |
 | 5 | The dashboard in the browser | `make ui` | 2 min |
 | 6 | A commit stopped on the laptop | four commands | 1 to 2 min |
-| 7 | A pull request stopped on GitHub, with SecureGate's comment | nothing: a page you prepared | 2 min |
+| 7 | A pull request stopped on GitHub, with SecureGate's comment | `make demo-leak` | 3 min |
 | 8 | The proof: automatic tests and an honest scorecard | `make test` | 1 min |
 
 Short on time? Run `make demo` before you start, then show steps 1, 3, 5 and 6 (about 7 minutes).
 
-Prefer one window, and no commands to type? SecureGate's menu runs steps 2 to 5 for you: see "Present it from the menu" below.
+Prefer one window, and no commands to type? SecureGate's menu runs steps 2 to 5 and step 7 for you: see "Present it from the menu" below.
 
 ## Where does it start?
 
-**The one-click way:** double-click `Start SecureGate.cmd` in the project folder. SecureGate opens in its own window: a padlock, its name in big letters, what is ready, and a menu. Type a number and press Enter. **1** builds the demo project (the first time only) and scans it with Gitleaks, like `make demo` and `make scan-demo`. **2** scans it with all four scanners, like `make scan-demo-all`, and then shows the comment a pull request would get on GitHub. After a scan, press Enter to open the dashboard in your browser, like `make ui`, and press Enter in the window again to close the dashboard. **3** shows the pull request comment again, **4** scans another project, **5** opens the dashboard on the last scan, **6** shows the rules, **7** builds the demo project again from scratch, **8** checks the setup, and **Q** closes the window. If SecureGate is not set up yet, it offers to do that first.
+**The one-click way:** double-click `Start SecureGate.cmd` in the project folder. SecureGate opens in its own window: a padlock, its name in big letters, what is ready, and a menu. Type a number and press Enter. **1** builds the demo project (the first time only) and scans it with Gitleaks, like `make demo` and `make scan-demo`. **2** scans it with all four scanners, like `make scan-demo-all`, and then shows the comment a pull request would get on GitHub. After a scan, press Enter to open the dashboard in your browser, like `make ui`, and press Enter in the window again to close the dashboard. **3** shows the pull request comment again, **4** scans another project, **5** opens the dashboard on the last scan, **6** shows the rules, **7** builds the demo project again from scratch, **8** checks the setup, **9** shows the merge gate on GitHub (it opens a demo pull request, waits for its check and shows the result), and **Q** closes the window. If SecureGate is not set up yet, it offers to do that first.
 
 Under the hood, SecureGate is a **command-line program**: you type a command, it does its job, prints the result and stops. Only the dashboard keeps running, and you look at it in your web browser. The menu just types the commands for you: it shows each one, such as `> securegate scan ..\securegate-demo --mode repo --out findings-demo.json`, before running it.
 
@@ -39,6 +39,10 @@ Under the hood, SecureGate is a **command-line program**: you type a command, it
 | `make scan-demo-all` | the same, plus `--scanners all --no-verification --comment reports\demo-comment.md` and the summary and SARIF | scans with all four scanners and writes the comment a pull request would get into `reports\` (live checks off: the fake keys are never sent anywhere) |
 | `make ui` | `.venv\Scripts\securegate ui --report findings-demo.json --open` | starts the dashboard and opens it in the browser |
 | `make menu` | `.venv\Scripts\securegate menu` | opens the menu, like double-clicking `Start SecureGate.cmd` |
+| `make demo-leak` | `.venv\Scripts\securegate demo-pr leak` | opens a demo pull request on GitHub with a fake payment key; `demo-clean`, `demo-deleted`, `demo-decoys` and `demo-risky` open the other four (see [Demo: the merge gate](demo-script.md)) |
+| `make demo-cleanup` | `.venv\Scripts\securegate demo-cleanup` | closes every demo pull request and deletes their branches |
+| `make doctor` | `.venv\Scripts\securegate doctor` | checks the scanners, the rules, `gh` and GitHub's settings: PASS, FAIL or SKIP |
+| `make ci-report` | `.venv\Scripts\securegate ci-report` | downloads the merge gate's newest report from GitHub and opens it in the dashboard |
 | `make test` | `.venv\Scripts\python.exe -m pytest` | runs the automatic tests and prints the scorecard |
 | `make check` | the code style check (ruff), then the tests | the full check before every commit |
 | `make hooks` | `.venv\Scripts\python.exe -m pre_commit install --install-hooks` | turns on the laptop gate (once; needs the internet) |
@@ -49,7 +53,7 @@ If `make` ever stops working, type the command from the middle column instead: i
 
 ## Present it from the menu
 
-Rather not type commands in front of the judges? Steps 2 to 5 can all be run from SecureGate's menu, in one window. Double-click `Start SecureGate.cmd`, maximize the window and make the text bigger (hold Ctrl and turn the mouse wheel). Each choice shows the command it runs, on a line starting with `>`, so the judges still see the real command, and the results are exactly those of the `make` commands in the steps below: their "Point at" and "Say" tips still apply.
+Rather not type commands in front of the judges? Steps 2 to 5 and step 7 can all be run from SecureGate's menu, in one window. Double-click `Start SecureGate.cmd`, maximize the window and make the text bigger (hold Ctrl and turn the mouse wheel). Each choice shows the command it runs, on a line starting with `>`, so the judges still see the real command, and the results are exactly those of the `make` commands in the steps below: their "Point at" and "Say" tips still apply.
 
 | Step | Type | What the judges see |
 |---|---|---|
@@ -59,10 +63,11 @@ Rather not type commands in front of the judges? Steps 2 to 5 can all be run fro
 | 3 | **3** | The pull request comment again, at any time. |
 | 4 | **6** | The rules in `policy.yaml`, top to bottom, each with its number, decision and reason. |
 | 5 | **5** | The dashboard, on the last scan. Press Enter in the menu's window to close it and go back to the menu. |
+| 7 | **9**, then **2** | The merge gate screen, then a demo pull request with a fake payment key, opened on GitHub, as with `make demo-leak`. Press Enter to open it in the browser, and Enter again to wait for its check (about a minute). The window then says `red`, `SecureGate said: BLOCKED` and `Merging: locked`; show the pull request in the browser (step 7). Enter opens the gate's report in the dashboard. **B** goes back to the first screen. |
 
-A few things are not in the menu: `git log` in step 2, changing `policy.yaml` in step 4 (choice 6 shows the rules; it does not change them), the commit in step 6, the GitHub page in step 7 and `make test` in step 8. Open a second PowerShell window in the project folder for them before you start.
+A few things are not in the menu: `git log` in step 2, changing `policy.yaml` in step 4 (choice 6 shows the rules; it does not change them), the commit in step 6 and `make test` in step 8. Open a second PowerShell window in the project folder for them before you start.
 
-Right before you start, choose **8**: it shows the versions of SecureGate and its four scanners, the rules, whether the laptop gate is on and whether the demo project is built. On the first screen, the **Scanners** line says `all four ready` when choice 2 can run. If it says `Gitleaks only`, run `make scanners` once (it needs the internet), or show choice 1 only.
+Right before you start, choose **8**: it shows the versions of SecureGate and its four scanners, the rules, whether the laptop gate is on and whether the demo project is built. On the first screen, the **Scanners** line says `all four ready` when choice 2 can run. If it says `Gitleaks only`, run `make scanners` once (it needs the internet), or show choice 1 only. For step 7, also choose **9**, then **9**: every line should say PASS.
 
 ## Where do I type the commands?
 
@@ -108,7 +113,7 @@ flowchart TD
 
 Three more things come up in the demo:
 
-- **`securegate demo-token`** makes a new, random fake token for ACME Pay, a payment provider invented for SecureGate's demos. Steps 6 and 7 use it.
+- **`securegate demo-token`** makes a new, random fake token for ACME Pay, a payment provider invented for SecureGate's demos. Step 6 uses it; the demo pull request in step 7 makes its own the same way.
 - **`sample_findings.json`** is a ready-made report with 22 findings, kept in the project as a spare. If a scan fails on the day, you can still show the dashboard with it.
 - **`.securegate\local.key`** is a private random key that the first scan creates. SecureGate only uses it to make fingerprints. It stays on this laptop (Git ignores it). Never share it.
 
@@ -138,7 +143,7 @@ It ends with `Semgrep 1.179.0 and Bandit 1.9.4: installed`. Then try `make scan-
 make check
 ```
 
-It takes about a minute and ends with a line like `746 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
+It takes about a minute and ends with a line like `828 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
 
 4. Turn on the laptop gate, for step 6:
 
@@ -149,7 +154,7 @@ make hooks
 It prints `pre-commit installed at .git\hooks\pre-commit`.
 
 5. For step 7, prepare the GitHub part (next section). Skip it if you won't show GitHub.
-6. Save a backup: screenshots of the dashboard, of `reports\demo-comment.md` and of the GitHub pull request with SecureGate's comment, in case something fails on the day.
+6. Save a backup: screenshots of the dashboard, of `reports\demo-comment.md` and of the GitHub pull request with SecureGate's comment, in case something fails on the day. A short recorded video of step 7 helps too: see "Backup plan" in [Demo: the merge gate](demo-script.md).
 7. If you can, try the projector. On wide screens such as 1920 × 1080, the dashboard uses bigger text by itself.
 
 ### Prepare the GitHub part (once)
@@ -157,10 +162,11 @@ It prints `pre-commit installed at .git\hooks\pre-commit`.
 You need a GitHub account and about 15 minutes.
 
 1. **Check that the project is on GitHub.** SecureGate's repository is `github.com/Bhavik-Kadian/SecureGate`, and its `main` already runs the four-scanner gate. In the project folder, `git remote -v` lists it as `origin`.
-
-2. **Open the demo pull request**: follow steps 1 to 6 of [Demo: the merge gate](demo-merge-gate.md). Stop after step 6, and keep its step 7 (clean up) for after the judging, so the pull request is still there to show. The check turns red a minute or two after each push.
-3. **Make the check required**: follow "The one-time setting" in [The two gates](merge-gate.md). The pull request then says that merging is blocked. From now on, changes only reach `main` through a pull request whose check passed: that is the point.
-4. **Before you present**, open the pull request in a browser tab, signed in to GitHub.
+2. **Install GitHub's command line and sign in** (once): `winget install --id GitHub.cli -e`, close and reopen PowerShell, then `gh auth login`. SecureGate uses it to open and close the demo pull requests.
+3. **Make the check required**: follow "The one-time setting" in [The two gates](merge-gate.md), by hand or with its one command. A red check then locks the merge button. From now on, changes only reach `main` through a pull request whose check passed: that is the point.
+4. **Check that everything is ready**: `make doctor`, or choose 9, then 9, in the menu. Every line should say PASS.
+5. **Try step 7 once**: `make demo-leak` (or 9, then 2, in the menu), wait for the red check, look at the comment, then `make demo-cleanup`. To be safe on the day, open one more with `make demo-leak` and leave it open: if the internet is slow, you can show that one, already red.
+6. **Before you present**, sign in to GitHub in the browser.
 
 ## Right before you start (5 minutes)
 
@@ -169,7 +175,7 @@ You need a GitHub account and about 15 minutes.
 3. Check the scanners: `.venv\Scripts\securegate version` prints `gitleaks 8.30.1`, `trufflehog 3.97.9`, `semgrep 1.179.0` and `bandit 1.9.4`.
 4. Check that the laptop gate is on: `Test-Path .git\hooks\pre-commit` prints `True`. If it prints `False`, run `make hooks` (needs the internet) or skip step 6.
    Or check steps 3 and 4 in one go: double-click `Start SecureGate.cmd` and choose 8. If you present from the menu, keep that window open.
-5. For step 7, open the pull request in a browser tab.
+5. For step 7, check that the browser is signed in to GitHub, and the backup pull request (if you made one) is open in a tab.
 6. Type `cls` to clear the screen.
 
 ## The demo, step by step
@@ -395,20 +401,51 @@ If the commit went through (the laptop gate was not on), first undo it with `git
 
 > A developer can skip this check with git commit --no-verify. That is allowed on purpose: a laptop check is an early warning, not a control. The real control is the second gate, on GitHub.
 
-### Step 7. The merge gate stops a pull request (1 to 2 minutes)
+### Step 7. The merge gate stops a pull request (3 minutes)
 
-This needs the internet and the GitHub preparation. In the pull request's browser tab, show:
+This needs the internet and the GitHub preparation.
+
+> Now the real control, on GitHub. I'll open a pull request with a fake payment key in it, the way a developer would.
+
+```powershell
+make demo-leak
+```
+
+Or, in the menu: **9**, then **2**. The judges see:
+
+```
+Opened a demo pull request: https://github.com/Bhavik-Kadian/SecureGate/pull/12
+  branch:   demo/leak-20261006-093015
+  contains: It writes a fake ACME Pay live token straight into demo-app/payments.py.
+  expected: red. Rule 8 (provider-keys) blocks the token, found by Gitleaks and TruffleHog.
+Its result, in about a minute: securegate ci-report --pr 12 --wait
+Never merge it; `make demo-cleanup` closes every demo pull request.
+```
+
+SecureGate built this pull request from main in a temporary folder, pushed it on its own `demo/` branch and opened it; your own files did not change. In the menu, press Enter to open it in the browser and Enter again to wait; with `make`, open the address it printed, then run `.venv\Scripts\securegate ci-report --pr 12 --wait --no-open` with the number it printed. While GitHub runs the check (about a minute):
+
+> GitHub is now running SecureGate on its own computers, with all four scanners, on every commit of this pull request.
+
+Then the window says:
+
+```
+The merge gate's check on demo/leak-20261006-093015 is red (run 18234567890).
+SecureGate said: BLOCKED (1 block, 0 warn, 0 ignore)
+Merging: locked. GitHub will not let anyone merge this pull request.
+```
+
+Reload the pull request in the browser, and show:
 
 1. The check **secret-gate** with a red cross, and the box at the bottom saying that merging is blocked.
-2. **SecureGate's comment** on the pull request, posted by github-actions: "SecureGate: BLOCKED (exit code 1)", `demo_leak.py:1` with the masked token, **rule 8: provider-keys**, found by Gitleaks and TruffleHog, and a checklist to rotate an ACME Pay key that ends with "Deleting the line is not enough: the key stays in Git history." Each push updates this one comment instead of adding another.
-3. The pull request's **Commits** tab: the second commit deleted the token, yet the check is still red.
-4. If there is time: select **Details** next to the check, then **Summary** at the top left, for the same report on the check's page; and the repository's **Security** tab, where the blocked token appears as a code scanning alert.
+2. **SecureGate's comment** on the pull request, posted by github-actions: "SecureGate: BLOCKED (exit code 1)", `demo-app/payments.py:3` with the masked token, **rule 8: provider-keys**, found by Gitleaks and TruffleHog, and a checklist to rotate an ACME Pay key that ends with "Deleting the line is not enough: the key stays in Git history." Each push updates this one comment instead of adding another.
+3. If there is time: select **Details** next to the check, then **Summary** at the top left, for the same report on the check's page; and the repository's **Security** tab, where the blocked token appears as a code scanning alert.
+4. To show that deleting the key does not help: **9**, then **3** in the menu (or `make demo-deleted`). Its second commit replaces the key with an environment variable, and the check is still red. [Demo: the merge gate](demo-script.md) has all five scenes, including decoys that pass with an explanation.
 
 > This is the real control. It runs on GitHub's computers, for every pull request, whoever opened it, with all four scanners. It scans every commit in the pull request, so deleting the key later does not help: it is still in the history, where anyone can read it. It judges each pull request with the rules from the main branch, so a pull request cannot weaken the rules that judge it. It explains itself in the pull request, with a checklist to rotate the key. And with this setting, nobody, not even an admin, can merge while the check is red.
 
 If the judges want to see how it works, open `.github/workflows/secret-gate.yml`, in VS Code or on GitHub. Every step has a comment in plain English, the four tools are pinned to exact versions in one place at the top, and Gitleaks and TruffleHog are checked against their published checksums before they run. A good proof: pull request #2 on SecureGate added this four-scanner workflow, and was the first pull request it judged.
 
-No internet? Show your screenshots, `reports\demo-comment.md` from step 3, or `docs/pdf/merge-gate.pdf`, and make the same points.
+No internet? Show your screenshots or video, `reports\demo-comment.md` from step 3 (choice 3 in the menu), or `docs/pdf/merge-gate.pdf`, and make the same points.
 
 ### Step 8. The proof: tests and an honest scorecard (1 minute)
 
@@ -416,7 +453,7 @@ No internet? Show your screenshots, `reports\demo-comment.md` from step 3, or `d
 make test
 ```
 
-After about a minute, the judges see the scorecards, and then the last line: `746 passed, 1 skipped`.
+After about a minute, the judges see the scorecards, and then the last line: `828 passed, 1 skipped`.
 
 ```
 repo mode, seed 42
@@ -434,7 +471,7 @@ planted lines: 20 (9 secret, 11 decoy)
 
 A second scorecard follows for `dir` mode. It only reads today's files, so it also misses the deleted Stripe key. With the other three scanners installed, more follow: one for all four scanners together (16 hits and only 1 miss) and one for each scanner alone, which shows what each of them adds.
 
-> Over 700 automatic tests check SecureGate on every change. Some run the real Gitleaks, TruffleHog, Semgrep and Bandit; others fail if a whole fake secret ever appears in any output: a report, a dashboard page, a pull request comment or a SARIF file. The scorecard compares a fresh scan of the demo with its answer sheet, and we show the real numbers: Gitleaks alone handles 15 of the 20 planted lines exactly as expected; all four scanners together handle 16, and only one password is still missed, inside a Dockerfile. That is our next improvement.
+> Over 800 automatic tests check SecureGate on every change. Some run the real Gitleaks, TruffleHog, Semgrep and Bandit; others fail if a whole fake secret ever appears in any output: a report, a dashboard page, a pull request comment or a SARIF file. The scorecard compares a fresh scan of the demo with its answer sheet, and we show the real numbers: Gitleaks alone handles 15 of the 20 planted lines exactly as expected; all four scanners together handle 16, and only one password is still missed, inside a Dockerfile. That is our next improvement.
 
 | Word | Meaning |
 |---|---|
@@ -451,7 +488,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 - Stop the dashboard if it is still running: press Ctrl+C in its PowerShell window, or Enter in the menu's window. Choose Q to close the menu.
 - Check that `demo_leak.py` is gone: `git status --short` does not list it.
-- On GitHub, finish the demo pull request: step 7 of [Demo: the merge gate](demo-merge-gate.md) closes it without merging and deletes the branch.
+- Close the demo pull requests without merging them, and delete their branches: `make demo-cleanup`, or in the menu **9**, then **8**, then **y**.
 - You can run `make demo` again at any time. It rebuilds exactly the same demo project.
 
 ## Questions judges may ask
@@ -464,7 +501,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **What if a developer skips the laptop check?** `git commit --no-verify` skips it, on purpose. The merge gate on GitHub still scans every commit in the pull request, and the ruleset stops the merge.
 
-**Can a pull request change the rules to let its own secret through?** No. The merge gate takes SecureGate and all its rules (`policy.yaml`, `.gitleaks.toml`, `.trufflehog.yaml` and `rules/`) from the main branch, not from the pull request. The one exception is a pull request that changes the workflow file itself, so the ruleset should also require a review. See [The two gates](merge-gate.md).
+**Can a pull request change the rules to let its own secret through?** No. The merge gate takes SecureGate and all its rules (`policy.yaml`, `.gitleaks.toml`, `.trufflehog.yaml` and `rules/`) from the main branch, not from the pull request. The one exception is a pull request that changes the workflow file itself: `.github/CODEOWNERS` names who must review those files, and the ruleset can require that review once there is a second maintainer. See [Limitations](limitations.md).
 
 **What if a scanner is missing or crashes, or the policy has a mistake?** Gitleaks and TruffleHog are required: if either fails, or the policy has a mistake, SecureGate stops with exit code 2, says why, and the check turns red. It never says "pass" when it could not do its job: it **fails closed**. Semgrep and Bandit are extra eyes: if one fails, the scan goes on, and the comment says in red that it did not run.
 
@@ -478,7 +515,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **Does it need the internet?** No. Scans, the dashboard and the laptop gate work offline. Only the merge gate needs GitHub. Semgrep downloads its p/secrets rules; without the internet it runs SecureGate's own rules and says so.
 
-**What is it built with?** Python 3.12; Gitleaks 8.30.1, TruffleHog 3.97.9, Semgrep 1.179.0 and Bandit 1.9.4 for finding; Flask for the dashboard; pre-commit for the laptop gate; and GitHub Actions for the merge gate, with 747 automatic tests.
+**What is it built with?** Python 3.12; Gitleaks 8.30.1, TruffleHog 3.97.9, Semgrep 1.179.0 and Bandit 1.9.4 for finding; Flask for the dashboard; pre-commit for the laptop gate; GitHub Actions for the merge gate, and GitHub's command line, gh, for the demo pull requests; with 829 automatic tests.
 
 ## If something goes wrong
 
@@ -497,6 +534,9 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | PowerShell seems stuck after `make ui` | It is not stuck: it is running the dashboard. Ctrl+C stops it. |
 | The commit in step 6 went through | The laptop gate was not on. Undo the commit with `git reset --soft HEAD~1`, then run the clean-up commands of step 6. |
 | No internet where you present | Steps 1 to 6 and step 8 work offline. For step 7, show your screenshots and `reports\demo-comment.md`. |
+| `make demo-leak` says `the working tree has uncommitted changes` | Something in the project folder is not committed, for example a leftover `demo_leak.py` from step 6. Run the clean-up commands of step 6, or `git stash`, and try again. |
+| `gh is not logged in` or `gh was not found` | Run `gh auth login`, or install it with `winget install --id GitHub.cli -e` and open PowerShell (or the menu) again. |
+| The window says `Merging: NOT locked` | The ruleset is missing: see "The one-time setting" in [The two gates](merge-gate.md). `make doctor` checks it. More problems and fixes: [Demo: the merge gate](demo-script.md). |
 | The window of `Start SecureGate.cmd` says `SecureGate stopped` | The lines above it say what went wrong, often one of the problems in this table. Press a key to close the window, fix the problem, then double-click the file again. |
 | The window of `Start SecureGate.cmd` asks `Terminate batch job (Y/N)?` | Someone pressed Ctrl+C. Press Y to close the window, then double-click the file again. To close SecureGate normally, choose Q in its menu. |
 | A scan fails on the day and you can't fix it | Show the spare report: `.venv\Scripts\securegate ui --report sample_findings.json --open`. |
@@ -506,7 +546,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | Where | What it is |
 |---|---|
 | `Makefile` | the shortcut commands (`make ...`) |
-| `Start SecureGate.cmd` | double-click it to open SecureGate's menu: scan the demo (with one scanner or all four) or another project, show the pull request comment, open the dashboard, see the rules |
+| `Start SecureGate.cmd` | double-click it to open SecureGate's menu: scan the demo (with one scanner or all four) or another project, show the pull request comment, open the dashboard, see the rules, and show the merge gate on GitHub |
 | `.venv\` | SecureGate and its tools, installed by `make setup`. The program is `.venv\Scripts\securegate.exe`. |
 | `src/securegate/` | the program's code. Every command starts in `cli.py`. |
 | `policy.yaml` | the rules: block, warn or ignore |
@@ -516,10 +556,13 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 | `src/securegate/demo/catalog.yaml` | what the demo project plants |
 | `..\securegate-demo\` | the demo project that `make demo` builds, next to the project folder |
 | `findings-demo.json` | the report of the last `make scan-demo` or `make scan-demo-all`, with masked values only |
-| `reports\` | the pull request comment, summary and SARIF of the last `make scan-demo-all` (Git ignores this folder) |
+| `reports\` | the pull request comment, summary and SARIF of the last `make scan-demo-all`, and `demo-pr.json`, the number and address of the last demo pull request (Git ignores this folder) |
+| `findings-ci.json` | the merge gate's report, downloaded from GitHub by `make ci-report` or the menu's choice 9 |
+| `src/securegate/demo/pr_templates/` | what the five demo pull requests contain |
 | `sample_findings.json` | a spare report with 22 findings |
 | `.securegate\` | the private fingerprint key, and the laptop gate's last report. Never share it. |
 | `.pre-commit-config.yaml`, `tools/precommit_hook.py` | the laptop gate |
 | `.github/workflows/secret-gate.yml` | the merge gate |
+| `.github/CODEOWNERS` | who reviews changes to the gate and its rules |
 | `tests/` | the automatic tests |
 | `docs/` and `docs/pdf/` | these pages, and a PDF copy of each |

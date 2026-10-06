@@ -45,6 +45,7 @@ Replace `<repository-address>` with the address your team gave you. `cd` means "
 - **2** scans the demo project with all four scanners: Gitleaks, TruffleHog, Semgrep and Bandit (install the other three once with `make scanners`). Then it shows the comment that a pull request would get on GitHub. **3** shows that comment again.
 - **4** scans a project of your own (step 5): type its folder, or drag the folder into the window. For a Git project, it offers all four scanners when they are installed, and asks before TruffleHog sends any key it finds to its provider to check whether it still works. Unless you type y, nothing is sent.
 - **5** opens the dashboard on the last scan, **6** shows the rules in `policy.yaml`, **7** builds the demo project again from scratch, and **8** checks the setup.
+- **9** shows the merge gate on GitHub (step 8): it opens a demo pull request, waits for its check, and shows the result and the report.
 - **Q** closes SecureGate.
 
 The menu runs the same commands as the steps below, and shows each one before it runs it. `make menu` opens the same menu from PowerShell, and on macOS and Linux.
@@ -112,9 +113,27 @@ make hooks
 
 This turns on the **laptop gate**: from now on, every `git commit` in this folder first scans the changes you are about to commit. If it finds a secret to block, the commit stops and shows the file and line, the masked value, why it was blocked and how to fix it. The first run of `make hooks` needs the internet; after that it works offline. More in [The two gates](merge-gate.md).
 
+## 8. See the merge gate on GitHub (optional)
+
+The **merge gate** checks every pull request on GitHub. To show it at work, SecureGate opens real pull requests with fake values. It needs GitHub's command line, signed in to an account that can push to the repository:
+
+```powershell
+winget install --id GitHub.cli -e
+gh auth login
+```
+
+Close PowerShell and open it again after installing. Then check that everything is ready, and open a pull request with a fake payment key:
+
+```powershell
+make doctor
+make demo-leak
+```
+
+`make doctor` prints PASS, FAIL or SKIP for each thing the demo needs. `make demo-leak` prints the pull request's address; after about a minute, its check turns red. In the menu, choose **9** to do the same without commands. `make demo-cleanup` closes every demo pull request again. The five scenes are in [Demo: the merge gate](demo-script.md).
+
 ## On macOS or Linux
 
-Install the same tools, then follow steps 2 to 7 in a terminal.
+Install the same tools, then follow steps 2 to 8 in a terminal (`brew install gh` or your system's package for step 8).
 
 ```bash
 # macOS, with Homebrew (https://brew.sh):

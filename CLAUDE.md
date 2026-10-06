@@ -43,7 +43,8 @@ compare masked values, counts or booleans instead.
   branches). `make demo-cleanup` closes them all; `make doctor` checks readiness; `make ci-report`
 - `make menu` (`securegate menu`): the interactive menu in src/securegate/menu/ (art, colour only in
   a real terminal). Each choice runs a securegate command; Enter closes its dashboard. Q = exit 0.
-  2 = `make scan-demo-all` (a test compares them), then the PR comment in the terminal; 3 shows it
+  2 = `make scan-demo-all` (a test compares them), then the PR comment in the terminal; 3 shows it;
+  9 = merge gate screen: demo PRs (link from reports/demo-pr.json), `ci-report --pr N --wait`, cleanup, doctor
 - `Start SecureGate.cmd`: double-click launcher (setup if asked, `securegate version`, then
   `securegate menu`). ASCII, CRLF; tests/test_launcher.py checks every securegate command in it
   still parses

@@ -14,15 +14,16 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 
 from securegate import __version__
-from securegate.ci_report import download_report
+from securegate.ci_report import download_report, merge_line
 from securegate.demo.app import AUTHOR_NAME
 from securegate.demo.generator import generate
-from securegate.demo.pull_requests import cleanup, open_demo_pr
+from securegate.demo.pull_requests import cleanup, open_demo_pr, save_last_demo
 from securegate.demo.scenarios import NAMES as SCENARIOS
 from securegate.demo.token import new_demo_token
 from securegate.doctor import exit_code as doctor_exit_code
 from securegate.doctor import run_checks
 from securegate.errors import SecureGateError
+from securegate.finding import DECISIONS
 from securegate.github import Tools, real_tools
 from securegate.mask import default_state_dir, load_hmac_key
 from securegate.outputs import Targets, write_outputs
@@ -160,8 +161,18 @@ def build_parser() -> argparse.ArgumentParser:
     ci_report = commands.add_parser(
         "ci-report", help="download findings.json from the merge gate and open the dashboard"
     )
-    ci_report.add_argument(
+    which = ci_report.add_mutually_exclusive_group()
+    which.add_argument(
         "--run", type=int, metavar="ID", help="the run to download (default: the newest)"
+    )
+    which.add_argument(
+        "--pr",
+        type=int,
+        metavar="NUMBER",
+        help="the run for the newest commit of this pull request",
+    )
+    ci_report.add_argument(
+        "--wait", action="store_true", help="wait until the run has finished (up to 15 minutes)"
     )
     ci_report.add_argument("--out", default="findings-ci.json", help="default: %(default)s")
     ci_report.add_argument(
@@ -402,7 +413,10 @@ def _demo_pr(args: argparse.Namespace, tools: Tools) -> int:
     print(f"  branch:   {opened.branch}")
     print(f"  contains: {opened.scenario.story.replace('`', '')}")
     print(f"  expected: {opened.scenario.expected}")
-    print("The check takes about a minute. Never merge it; `make demo-cleanup` closes it.")
+    last = save_last_demo(opened)
+    if last is not None:
+        print(f"Its result, in about a minute: securegate ci-report --pr {last.number} --wait")
+    print("Never merge it; `make demo-cleanup` closes every demo pull request.")
     return EXIT_PASS
 
 
@@ -443,11 +457,24 @@ def _doctor(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> 
 
 
 def _ci_report(args: argparse.Namespace, tools: Tools) -> int:
-    done = download_report(Path.cwd(), tools, Path(args.out), args.run)
-    print(
-        f"Downloaded findings.json of run {done.run_id} ({done.branch}, {done.conclusion}) "
-        f"to {done.saved}"
+    done = download_report(
+        Path.cwd(),
+        tools,
+        Path(args.out),
+        run_id=args.run,
+        pull_request=args.pr,
+        wait=args.wait,
+        say=print,
     )
+    run, report = done.run, done.report
+    check_result = {"success": "green", "failure": "red"}.get(run.conclusion, run.conclusion)
+    print(f"The merge gate's check on {run.branch} is {check_result} (run {run.id}).")
+    counts = ", ".join(f"{report.count(decision)} {decision}" for decision in DECISIONS)
+    print(f"SecureGate said: {report.result} ({counts})")
+    merging = merge_line(run, done.merge_state)
+    if merging:
+        print(merging)
+    print(f"Saved its findings.json (masked values only) to {done.saved}")
     if args.no_open:
         print(f"Open it with: securegate ui --report {done.saved} --open")
         return EXIT_PASS

@@ -6,6 +6,7 @@ Convention: fake values never appear inside an assert; tests compare booleans in
 """
 
 import json
+import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -22,9 +23,18 @@ from helpers import (
     gitleaks_installed,
     scan_args,
 )
-from securegate.ci_report import download_report
+from securegate.ci_report import GateRun, download_report, merge_line
 from securegate.demo import scenarios
-from securegate.demo.pull_requests import DemoRefused, cleanup, is_demo_branch, open_demo_pr
+from securegate.demo.pull_requests import (
+    LAST_DEMO,
+    DemoRefused,
+    OpenedPullRequest,
+    cleanup,
+    is_demo_branch,
+    load_last_demo,
+    open_demo_pr,
+    save_last_demo,
+)
 from securegate.doctor import exit_code, run_checks
 from securegate.entropy import shannon_entropy
 from securegate.github import GitHubError, Tools
@@ -39,13 +49,17 @@ NOW = datetime(2026, 10, 6, 9, 30, 15, tzinfo=UTC)
 needs_git = pytest.mark.skipif(not git_installed(), reason="git is not installed")
 
 
+Answer = RunResult | Callable[[list[str]], RunResult]
+
+
 class FakeGh:
-    """Records every gh command. Answers are set per command, by its first two words."""
+    """Records every gh command. Answers are set per command, by its first two words; an answer
+    can be a function of the command's arguments."""
 
     def __init__(self) -> None:
         self.calls: list[list[str]] = []
         self.bodies: list[str] = []  # the text of every --body-file
-        self.answers: dict[str, RunResult] = {
+        self.answers: dict[str, Answer] = {
             "auth status": RunResult(0, "", ""),
             "pr create": RunResult(0, PR_URL + "\n", ""),
             "pr list": RunResult(0, "[]", ""),
@@ -62,8 +76,10 @@ class FakeGh:
         if key in self.on_call:
             self.on_call[key](args)
         if args[0] == "api":
-            return self.answers.get(f"api {args[1]}", RunResult(1, "", "not found"))
-        return self.answers.get(key, RunResult(0, "", ""))
+            answer = self.answers.get(f"api {args[1]}", RunResult(1, "", "not found"))
+        else:
+            answer = self.answers.get(key, RunResult(0, "", ""))
+        return answer if isinstance(answer, RunResult) else answer(args)
 
     def called(self, words: str) -> list[list[str]]:
         return [call for call in self.calls if " ".join(call).startswith(words)]
@@ -327,8 +343,69 @@ def test_the_cli_prints_the_url_and_never_the_token(
     printed = capsys.readouterr()
     assert code == 0
     assert PR_URL in printed.out
+    assert "securegate ci-report --pr 7 --wait" in printed.out
     shown = any(v in printed.out + printed.err for v in values.values())
     assert not shown
+    last = load_last_demo(origin.repo.path / LAST_DEMO)
+    assert last is not None
+    assert (last.number, last.url, last.scenario) == (7, PR_URL, "leak")
+    note = (origin.repo.path / LAST_DEMO).read_text(encoding="utf-8")
+    note_has_value = any(v in note for v in values.values())
+    assert not note_has_value
+
+
+# --- the note about the newest demo pull request --------------------------------------------
+
+
+def _opened(url: str = PR_URL, branch: str = "demo/leak-20261006-093015") -> OpenedPullRequest:
+    scenario = scenarios.build("leak", scenarios.fresh_values())
+    return OpenedPullRequest(url=url, branch=branch, scenario=scenario)
+
+
+def test_the_note_keeps_the_number_link_and_scenario(tmp_path: Path) -> None:
+    note = tmp_path / "reports" / "demo-pr.json"
+    saved = save_last_demo(_opened(), note)
+    assert saved is not None
+    assert load_last_demo(note) == saved
+    assert (saved.number, saved.branch, saved.title) == (
+        7,
+        "demo/leak-20261006-093015",
+        "a payment key in the code",
+    )
+
+
+def test_no_note_without_a_pull_request_link(tmp_path: Path) -> None:
+    note = tmp_path / "demo-pr.json"
+    assert save_last_demo(_opened(url="Created, see GitHub"), note) is None
+    assert not note.exists()
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("url", "https://example.com/demo-owner/demo-repo/pull/7"),
+        ("url", "file:///C:/Windows/notepad.exe"),
+        ("url", f"{PR_URL}/../../settings"),
+        ("number", 8),
+        ("number", "7"),
+        ("branch", "main"),
+        ("scenario", "something-else"),
+        ("title", None),
+    ],
+)
+def test_a_note_that_is_not_ours_is_ignored(tmp_path: Path, field: str, value: object) -> None:
+    note = tmp_path / "demo-pr.json"
+    save_last_demo(_opened(), note)
+    data = json.loads(note.read_text(encoding="utf-8"))
+    data[field] = value
+    note.write_text(json.dumps(data), encoding="utf-8")
+    assert load_last_demo(note) is None
+
+
+def test_a_missing_or_broken_note_is_ignored(tmp_path: Path) -> None:
+    assert load_last_demo(tmp_path / "missing.json") is None
+    (tmp_path / "broken.json").write_text("{not json", encoding="utf-8")
+    assert load_last_demo(tmp_path / "broken.json") is None
 
 
 # --- demo-cleanup ---------------------------------------------------------------------------
@@ -534,20 +611,73 @@ def test_the_doctor_command_prints_one_line_per_check(
 
 # --- ci-report ------------------------------------------------------------------------------
 
+HEAD_SHA = "c0ffee" * 6 + "abcd"
 
-def _ci_gh(report: Path | None, *, status: str = "completed") -> FakeGh:
+
+def _run(status: str = "completed", conclusion: str = "failure", sha: str = HEAD_SHA) -> dict:
+    return {
+        "databaseId": 42,
+        "headBranch": "demo/leak-1",
+        "headSha": sha,
+        "conclusion": conclusion if status == "completed" else "",
+        "status": status,
+    }
+
+
+def _ci_gh(report: Path | None, *runs: dict, merge_state: str = "BLOCKED") -> FakeGh:
+    """A gh whose `run list` gives `runs` one after the other (the last one stays), and whose
+    `run download` copies `report` into the folder it is given."""
     gh = FakeGh()
-    run = {"databaseId": 42, "headBranch": "demo/leak-1", "conclusion": "failure", "status": status}
-    gh.answers["run list"] = RunResult(0, json.dumps([run]), "")
-    gh.answers["run view"] = RunResult(0, json.dumps(run), "")
+    queue = list(runs) or [_run()]
+
+    def run_list(args: list[str]) -> RunResult:
+        current = queue.pop(0) if len(queue) > 1 else queue[0]
+        return RunResult(0, json.dumps([current] if current else []), "")
+
+    def run_view(args: list[str]) -> RunResult:
+        return RunResult(0, json.dumps(queue[0]), "")
+
+    def pr_view(args: list[str]) -> RunResult:
+        fields = args[args.index("--json") + 1]
+        if fields == "mergeStateStatus":
+            return RunResult(0, json.dumps({"mergeStateStatus": merge_state}), "")
+        return RunResult(0, json.dumps({"headRefName": "demo/leak-1", "headRefOid": HEAD_SHA}), "")
 
     def download(args: list[str]) -> None:
         if report is not None:
             folder = Path(args[args.index("--dir") + 1])
             shutil.copyfile(report, folder / "findings.json")
 
+    gh.answers.update({"run list": run_list, "run view": run_view, "pr view": pr_view})
     gh.on_call["run download"] = download
     return gh
+
+
+class Clock:
+    """A clock that a fake sleep moves forward."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+        self.sleeps: list[float] = []
+
+    def sleep(self, seconds: float) -> None:
+        self.sleeps.append(seconds)
+        self.now += seconds
+
+
+def _download(gh: FakeGh, out: Path, clock: Clock | None = None, **options: object):
+    clock = clock or Clock()
+    said: list[str] = []
+    done = download_report(
+        out.parent,
+        Tools(git=FakeGit(), gh=gh),
+        out,
+        say=said.append,
+        sleep=clock.sleep,
+        clock=lambda: clock.now,
+        **options,
+    )
+    return done, said
 
 
 def test_ci_report_downloads_the_newest_run_and_checks_it(
@@ -555,8 +685,10 @@ def test_ci_report_downloads_the_newest_run_and_checks_it(
 ) -> None:
     gh = _ci_gh(sample_report)
     out = tmp_path / "findings-ci.json"
-    done = download_report(tmp_path, Tools(git=FakeGit(), gh=gh), out)
-    assert (done.run_id, done.branch, done.conclusion) == (42, "demo/leak-1", "failure")
+    done, _ = _download(gh, out)
+    assert (done.run.id, done.run.branch, done.run.conclusion) == (42, "demo/leak-1", "failure")
+    assert done.report.result == "BLOCKED"
+    assert done.merge_state is None  # only asked for a pull request
     assert out.read_bytes() == sample_report.read_bytes()
     (download,) = gh.called("run download")
     assert download[2:6] == ["42", "--repo", SLUG, "--name"]
@@ -567,26 +699,93 @@ def test_ci_report_refuses_a_report_that_is_not_masked(tmp_path: Path) -> None:
     bad.write_text("{not json", encoding="utf-8")
     out = tmp_path / "findings-ci.json"
     with pytest.raises(GitHubError, match="cannot be shown"):
-        download_report(tmp_path, Tools(git=FakeGit(), gh=_ci_gh(bad)), out)
+        _download(_ci_gh(bad), out)
     assert not out.exists()
 
 
-def test_ci_report_waits_for_a_run_that_has_not_finished(tmp_path: Path) -> None:
-    gh = _ci_gh(None, status="in_progress")
+def test_ci_report_without_wait_refuses_a_run_that_has_not_finished(tmp_path: Path) -> None:
+    gh = _ci_gh(None, _run(status="in_progress"))
     with pytest.raises(GitHubError, match="not finished"):
-        download_report(tmp_path, Tools(git=FakeGit(), gh=gh), tmp_path / "out.json", 42)
+        _download(gh, tmp_path / "out.json", run_id=42)
     assert gh.called("run download") == []
 
 
-def test_ci_report_cli_downloads_without_opening(
+def test_ci_report_for_a_pull_request_waits_for_the_run_of_its_newest_commit(
+    sample_report: Path, tmp_path: Path
+) -> None:
+    older_commit = _run(sha="0" * 40)
+    gh = _ci_gh(
+        sample_report, {}, older_commit, _run(status="queued"), _run(status="in_progress"), _run()
+    )
+    clock = Clock()
+    done, said = _download(gh, tmp_path / "findings-ci.json", clock, pull_request=7, wait=True)
+    assert done.run.head_sha == HEAD_SHA
+    assert done.merge_state == "BLOCKED"
+    assert clock.sleeps == [5, 5, 5, 5]
+    assert said == [
+        "Waiting for the merge gate's check on pull request #7 (it takes about a minute)..."
+    ]
+    (head_query,) = [c for c in gh.called("pr view") if "headRefName,headRefOid" in c]
+    assert head_query[:4] == ["pr", "view", "7", "--repo"]
+    branch_queries = [c[c.index("--branch") + 1] for c in gh.called("run list")]
+    assert set(branch_queries) == {"demo/leak-1"}
+
+
+def test_ci_report_gives_up_after_15_minutes(tmp_path: Path) -> None:
+    gh = _ci_gh(None, _run(status="in_progress"))
+    clock = Clock()
+    with pytest.raises(GitHubError, match="within 15 minutes"):
+        _download(gh, tmp_path / "out.json", clock, pull_request=7, wait=True)
+    assert 15 * 60 < clock.now < 15 * 60 + 10
+    assert gh.called("run download") == []
+
+
+def test_ci_report_says_when_the_gate_has_not_run_yet(tmp_path: Path) -> None:
+    gh = _ci_gh(None, {})
+    with pytest.raises(GitHubError, match="has not run for pull request #7 yet"):
+        _download(gh, tmp_path / "out.json", pull_request=7)
+
+
+@pytest.mark.parametrize(
+    ("conclusion", "state", "expected"),
+    [
+        ("failure", "BLOCKED", "Merging: locked."),
+        ("failure", "UNSTABLE", "Merging: NOT locked."),
+        ("failure", "CLEAN", "Merging: NOT locked."),
+        ("success", "CLEAN", "Merging: allowed."),
+        ("success", "UNKNOWN", None),
+        ("failure", None, None),
+    ],
+)
+def test_the_merge_line_says_what_github_allows(
+    conclusion: str, state: str | None, expected: str | None
+) -> None:
+    run = GateRun(id=1, branch="b", head_sha="s", status="completed", conclusion=conclusion)
+    line = merge_line(run, state)
+    if expected is None:
+        assert line is None
+    else:
+        assert line is not None
+        assert line.startswith(expected)
+
+
+def test_ci_report_cli_says_what_the_gate_decided(
     sample_report: Path, run_cli, tmp_path: Path
 ) -> None:
+    gh = _ci_gh(sample_report)
     result = run_cli(
-        "ci-report", "--no-open", tool_runners={"git": FakeGit(), "gh": _ci_gh(sample_report)}
+        "ci-report", "--pr", "7", "--no-open", tool_runners={"git": FakeGit(), "gh": gh}
     )
     assert result.exit_code == 0
-    assert "run 42 (demo/leak-1, failure)" in result.out
+    assert "The merge gate's check on demo/leak-1 is red (run 42)." in result.out
+    assert re.search(r"SecureGate said: BLOCKED \(\d+ block, \d+ warn, \d+ ignore\)", result.out)
+    assert "Merging: locked." in result.out
     assert (tmp_path / "findings-ci.json").is_file()
+
+
+def test_ci_report_takes_a_run_or_a_pull_request_not_both(run_cli) -> None:
+    with pytest.raises(SystemExit):
+        run_cli("ci-report", "--run", "1", "--pr", "2")
 
 
 def test_ci_report_fails_closed_when_gh_is_missing(run_cli) -> None:

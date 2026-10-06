@@ -16,6 +16,8 @@ make ui
 
 You can also open it from SecureGate's menu: double-click `Start SecureGate.cmd` in the SecureGate folder on Windows, or run `make menu`. Choose 1 (or 2, with all four scanners) to scan the demo project and open the dashboard on the result, or 5 to open the dashboard on the last scan. While the dashboard is open, the menu waits: press Enter in its window to close the dashboard and go back to the menu.
 
+The dashboard also shows the merge gate's reports from GitHub. `make ci-report` downloads the `findings.json` of the newest `secret-gate` run, checks it like any other report, saves it as `findings-ci.json` and opens it. In the menu, choose 9: after a demo pull request's check, Enter opens its report, and 7 opens the newest one.
+
 To show another report, run this in the SecureGate folder:
 
 ```powershell

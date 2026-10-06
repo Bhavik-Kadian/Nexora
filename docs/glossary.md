@@ -6,11 +6,15 @@
 
 **CI (continuous integration)**: a service that runs checks automatically every time someone proposes a change to a project. Example: GitHub shows a red cross on a pull request when a check fails. SecureGate runs there as the merge gate, the `secret-gate` check.
 
+**Code owners**: the people GitHub asks to review a pull request that changes certain files, listed in `.github/CODEOWNERS`. A ruleset can make their review required.
+
 **Commit**: a saved snapshot of a project in Git, with a message, an author and a date.
 
 **Dashboard**: SecureGate's web pages that show a scan report in your browser. It only reads the report and only shows masked values. Example: `make ui`.
 
 **Decoy**: something that looks like a secret but is not. Example: a 40-character commit hash, or a placeholder.
+
+**Demo pull request**: a real pull request that SecureGate opens on GitHub to show the merge gate at work, with fake values made at random. Its branch name starts with `demo/`, and it is never merged. Example: `make demo-leak`; `make demo-cleanup` closes them all.
 
 **Design token**: a named design value, such as a colour or a spacing, kept in one place so the whole design can be changed there. Example: `--color-brand-foreground-1: #5AB0FF` in `tokens.css`, the accent colour of the dashboard.
 
@@ -23,6 +27,8 @@
 **False positive (false alarm)**: something reported as a secret that is not one. Example: a random-looking cache key.
 
 **Fingerprint**: a code made from a secret that recognizes the same secret again, without storing it. SecureGate mixes in a private key (a method called HMAC), so nobody can work back from the fingerprint to the secret, or test guesses against it. Example: `dcc7b5bb...` (64 characters).
+
+**gh (GitHub CLI)**: GitHub's own command-line program. SecureGate uses it to open and close demo pull requests and to download the merge gate's reports. Example: `gh auth login` signs it in once.
 
 **Git history**: every commit ever made in a repository. Deleting a line in a new commit does not remove it from the older ones.
 
@@ -40,7 +46,7 @@
 
 **Pre-commit**: the moment just before a change is saved as a commit. A pre-commit check can stop a secret before it ever enters the history. Example: after `make hooks`, every commit first runs `securegate scan . --mode staged`, which checks exactly the changes about to be committed.
 
-**Pull request**: a request to add a set of commits to the main version of a project. Others can review it, and checks run on it, before it is merged. Example: the demo in `demo-merge-gate.md` opens one.
+**Pull request**: a request to add a set of commits to the main version of a project. Others can review it, and checks run on it, before it is merged. Example: `make demo-leak` opens one.
 
 **Repository (repo)**: a project folder together with its Git history.
 

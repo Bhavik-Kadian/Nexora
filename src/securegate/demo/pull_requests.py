@@ -10,6 +10,9 @@ demo-pr:
 demo-cleanup closes every open pull request whose branch starts with demo/, and deletes the
 remaining demo/ branches on origin and here. Neither ever pushes to, commits to or deletes main:
 every branch name is checked against `demo/` before git or gh touches it.
+
+demo-pr also notes the pull request it opened in reports/demo-pr.json (number, link, branch and
+scenario; no values), so the menu can wait for its result and open its report.
 """
 
 import contextlib
@@ -18,7 +21,7 @@ import re
 import shutil
 import tempfile
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -28,6 +31,8 @@ from securegate.github import GitHubError, Tools, check, gh_logged_in, origin_sl
 DEMO_BRANCH = re.compile(r"demo/[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9._-]+)*")
 BASE = "main"
 PR_LIMIT = 200
+LAST_DEMO = Path("reports") / "demo-pr.json"  # the newest demo pull request; Git ignores reports/
+PR_URL = re.compile(r"https://github\.com/[A-Za-z0-9-]+/[A-Za-z0-9._-]+/pull/(?P<number>\d+)")
 
 
 class DemoRefused(GitHubError):
@@ -39,6 +44,18 @@ class OpenedPullRequest:
     url: str
     branch: str
     scenario: scenarios.Scenario
+
+
+@dataclass(frozen=True, slots=True)
+class LastDemo:
+    """The newest demo pull request, as noted in reports/demo-pr.json."""
+
+    number: int
+    url: str
+    branch: str
+    scenario: str
+    title: str
+    expected: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,6 +173,48 @@ def cleanup(repo: Path, tools: Tools) -> Cleanup:
         check(tools.git, "git", ["branch", "-D", branch], cwd=repo)
         local_deleted.append(branch)
     return Cleanup(tuple(closed), tuple(remote_deleted), tuple(local_deleted), tuple(kept))
+
+
+def save_last_demo(opened: OpenedPullRequest, path: Path = LAST_DEMO) -> LastDemo | None:
+    """Note the pull request that demo-pr opened. None when gh gave no pull request link."""
+    found = PR_URL.fullmatch(opened.url)
+    if found is None:
+        return None
+    last = LastDemo(
+        number=int(found.group("number")),
+        url=opened.url,
+        branch=opened.branch,
+        scenario=opened.scenario.name,
+        title=opened.scenario.title,
+        expected=opened.scenario.expected,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(asdict(last), indent=2) + "\n", encoding="utf-8")
+    return last
+
+
+def load_last_demo(path: Path = LAST_DEMO) -> LastDemo | None:
+    """The newest demo pull request, or None when there is none or the note is not one of ours:
+    the link must be a GitHub pull request link, so the menu never opens anything else."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    url, number = data.get("url"), data.get("number")
+    found = PR_URL.fullmatch(url) if isinstance(url, str) else None
+    fields = [data.get(name) for name in ("branch", "scenario", "title", "expected")]
+    if (
+        found is None
+        or not isinstance(number, int)
+        or int(found.group("number")) != number
+        or not all(isinstance(field, str) for field in fields)
+        or not is_demo_branch(data["branch"])
+        or data["scenario"] not in scenarios.NAMES
+    ):
+        return None
+    return LastDemo(number, url, *fields)
 
 
 def is_demo_branch(name: str) -> bool:
