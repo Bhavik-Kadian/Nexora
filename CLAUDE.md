@@ -39,7 +39,8 @@ compare masked values, counts or booleans instead.
   Nexora (stores every branch; main goes there as build-main; never overwrite its main)
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
 - `make menu` (`securegate menu`): the interactive menu in src/securegate/menu/ (art, colour only in
-  a real terminal). Each choice runs a securegate command; Enter closes its dashboard. Q = exit 0
+  a real terminal). Each choice runs a securegate command; Enter closes its dashboard. Q = exit 0.
+  2 = `make scan-demo-all` (a test compares them), then the PR comment in the terminal; 3 shows it
 - `Start SecureGate.cmd`: double-click launcher (setup if asked, `securegate version`, then
   `securegate menu`). ASCII, CRLF; tests/test_launcher.py checks every securegate command in it
   still parses

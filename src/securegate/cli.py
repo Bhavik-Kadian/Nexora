@@ -31,6 +31,7 @@ from securegate.report import (
 )
 from securegate.scanners import gitleaks
 from securegate.scanners.common import ScannerRun, ToolRunner
+from securegate.scanners.versions import scanner_versions
 
 EXIT_PASS = 0
 EXIT_BLOCK = 1
@@ -129,7 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     summary.add_argument("--report", default="findings.json", help="default: %(default)s")
 
-    commands.add_parser("version", help="print the SecureGate and Gitleaks versions")
+    commands.add_parser("version", help="print the versions of SecureGate and its four scanners")
 
     commands.add_parser(
         "menu", help="open the menu: scan, see the rules and open the dashboard without typing"
@@ -150,7 +151,7 @@ def main(
     runner = runner or gitleaks.subprocess_runner
     try:
         if args.command == "version":
-            return _version(runner)
+            return _version(runner, tool_runners or {})
         if args.command == "demo-repo":
             return _demo_repo(args)
         if args.command == "ui":
@@ -347,10 +348,15 @@ def _summary(args: argparse.Namespace) -> int:
     return EXIT_ERROR if isinstance(report, ReportProblem) else EXIT_PASS
 
 
-def _version(runner: gitleaks.Runner) -> int:
+def _version(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> int:
     print(f"securegate {__version__}")
     found = gitleaks.gitleaks_version(runner)
     print(f"gitleaks {found}" if found else "gitleaks not found (it is needed for scans)")
+    for name, version in scanner_versions(tool_runners).items():
+        if version:
+            print(f"{name} {version}")
+        else:
+            print(f"{name} not found (`make scanners` installs it; --scanners all uses it)")
     return EXIT_PASS
 
 

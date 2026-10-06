@@ -2,13 +2,15 @@
 
 Each choice runs the securegate commands a person would type, through `run_command`, and shows
 each command before running it. So the exit codes, masking and fail-closed checks are exactly
-those of the CLI. Apart from that, the menu only reads: policy.yaml for the rules, and the last
-report through the dashboard's loader, which refuses any value that is not masked.
+those of the CLI. Apart from that, the menu only reads: policy.yaml for the rules, the last
+report through the dashboard's loader, which refuses any value that is not masked, and the pull
+request comment that a scan wrote (made from that same checked report).
 """
 
+import re
 import textwrap
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from securegate import __version__
@@ -17,7 +19,9 @@ from securegate.errors import SecureGateError
 from securegate.finding import DECISIONS
 from securegate.menu.art import TAGLINE, banner, render
 from securegate.menu.terminal import BOLD, CLEAR, CYAN, GREEN, GREY, RED, YELLOW, Terminal, paint
+from securegate.outputs.markdown import MARKER
 from securegate.policy import load_policy
+from securegate.programs import find_program
 from securegate.ui.report_view import ReportView, load_report
 
 EXIT_PASS = 0  # securegate's exit codes, as in cli.py
@@ -27,20 +31,27 @@ DEMO_DIR = Path("../securegate-demo")  # where make demo builds it, next to the 
 DEMO_SEED = "42"
 DEMO_REPORT = Path("findings-demo.json")
 OWN_REPORT = Path("findings.json")
+REPORTS = Path("reports")  # what make scan-demo-all writes besides the report; Git ignores it
+DEMO_COMMENT = REPORTS / "demo-comment.md"
+OWN_COMMENT = REPORTS / "comment.md"
+OTHER_SCANNERS = ("trufflehog", "semgrep", "bandit")  # installed by make scanners
 POLICY = Path("policy.yaml")
 LAPTOP_GATE = Path(".git/hooks/pre-commit")  # what make hooks installs
 MARGIN = "  "
 REVEAL_SECONDS = 0.04  # between the lines of the art, on the first screen only
 
 CHOICES = (
-    ("1", "Scan the demo project", "its whole history (built the first time)"),
-    ("2", "Scan a project of yours", "type its folder, or drag it in here"),
-    ("3", "Open the dashboard", "the last scan, in your browser"),
-    ("4", "Show the rules", "what policy.yaml blocks, warns and ignores"),
-    ("5", "Rebuild the demo project", "start it over, exactly as new"),
-    ("6", "Check the setup", "versions, rules and the laptop gate"),
+    ("1", "Scan the demo project", "with Gitleaks, its whole history (built the first time)"),
+    ("2", "Scan it with all four scanners", "Gitleaks, TruffleHog, Semgrep and Bandit"),
+    ("3", "Show the pull request comment", "what the merge gate posts on GitHub"),
+    ("4", "Scan a project of yours", "type its folder, or drag it in here"),
+    ("5", "Open the dashboard", "the last scan, in your browser"),
+    ("6", "Show the rules", "what policy.yaml blocks, warns and ignores"),
+    ("7", "Rebuild the demo project", "start it over, exactly as new"),
+    ("8", "Check the setup", "versions, scanners, rules and the laptop gate"),
     ("Q", "Quit", ""),
 )
+LABEL_WIDTH = 32
 QUIT = ("q", "quit", "exit")
 DECISION_STYLES = {"block": BOLD + RED, "warn": BOLD + YELLOW, "ignore": GREY}
 RESULT_STYLES = {"PASS": BOLD + GREEN, "BLOCKED": BOLD + RED}
@@ -59,13 +70,20 @@ def run_menu(
     run_command: RunCommand,
     open_dashboard: OpenDashboard,
     gitleaks_version: str | None,
+    program_found: Callable[[str], bool] | None = None,
 ) -> int:
     """Show the menu until the person chooses Q, then return exit code 0.
 
     `run_command` runs one securegate command and returns its exit code. `open_dashboard`
-    shows a report in the dashboard until the function it is given returns.
+    shows a report in the dashboard until the function it is given returns. `program_found`
+    says whether a scanner such as trufflehog is installed (tests pass their own answer).
     """
-    return Menu(terminal, run_command, open_dashboard, gitleaks_version).run()
+    found = program_found or _installed
+    return Menu(terminal, run_command, open_dashboard, gitleaks_version, found).run()
+
+
+def _installed(program: str) -> bool:
+    return find_program(program) is not None
 
 
 @dataclass
@@ -74,17 +92,21 @@ class Menu:
     run_command: RunCommand
     open_dashboard: OpenDashboard
     gitleaks_version: str | None  # None: Gitleaks was not found
+    program_found: Callable[[str], bool] = field(default=_installed)
     last_report: Path = DEMO_REPORT  # the report the dashboard opens
+    last_comment: Path = DEMO_COMMENT  # the pull request comment that 3 shows
     hint: str = ""  # shown under the choices on the next screen
 
     def run(self) -> int:
         actions: dict[str, Callable[[], bool]] = {
             "1": self.scan_demo,
-            "2": self.scan_project,
-            "3": self.dashboard,
-            "4": self.rules,
-            "5": self.rebuild_demo,
-            "6": self.check_setup,
+            "2": self.scan_demo_all,
+            "3": self.show_comment,
+            "4": self.scan_project,
+            "5": self.dashboard,
+            "6": self.rules,
+            "7": self.rebuild_demo,
+            "8": self.check_setup,
         }
         first = True
         while True:
@@ -96,7 +118,7 @@ class Menu:
                 return EXIT_PASS
             action = actions.get(choice)
             if action is None:
-                self.hint = "Type a number from 1 to 6, or Q to quit, then press Enter."
+                self.hint = "Type a number from 1 to 8, or Q to quit, then press Enter."
                 continue
             self.say("")
             try:
@@ -132,7 +154,7 @@ class Menu:
         self.say("")
         for key, label, note in CHOICES:
             shown = self.paint(key, BOLD + CYAN)
-            self.say(f"{MARGIN}  {shown}  {label:<26}{self.paint(note, GREY)}".rstrip())
+            self.say(f"{MARGIN}  {shown}  {label:<{LABEL_WIDTH}}{self.paint(note, GREY)}".rstrip())
         self.say("")
         if self.hint:
             self.say(MARGIN + self.paint(self.hint, YELLOW))
@@ -148,9 +170,18 @@ class Menu:
             rules = self.paint(f"no {POLICY} here (start SecureGate in its folder)", RED)
         return [
             ("Setup", f"SecureGate {__version__}, {gitleaks}, {rules}"),
+            ("Scanners", self.scanners_status()),
             ("Demo", self.demo_status()),
             ("Last scan", self.last_scan()),
         ]
+
+    def scanners_status(self) -> str:
+        missing = [name for name in OTHER_SCANNERS if not self.program_found(name)]
+        if not missing:
+            return "Gitleaks, TruffleHog, Semgrep and Bandit: all four ready (2 and 4 use them)"
+        names = {"trufflehog": "TruffleHog", "semgrep": "Semgrep", "bandit": "Bandit"}
+        absent = ", ".join(names[name] for name in missing)
+        return self.paint(f"Gitleaks only. Missing: {absent} (install with: make scanners)", YELLOW)
 
     def demo_status(self) -> str:
         return f"ready in {DEMO_DIR}" if self.demo_ready() else "not built yet (1 builds it)"
@@ -182,6 +213,63 @@ class Menu:
             )
         return self.after_scan(code, DEMO_REPORT)
 
+    def scan_demo_all(self) -> bool:
+        if not self.program_found("trufflehog"):
+            self.tell(
+                "Scanning with all four scanners needs TruffleHog, Semgrep and Bandit. Install "
+                "them once with: make scanners (it needs the internet)."
+            )
+            return True
+        if not self.demo_ready():
+            self.tell(f"Building the demo project in {DEMO_DIR} (the first time only)...")
+            if self.build_demo() != EXIT_PASS:
+                self.tell("The demo project could not be built: the lines above say why.")
+                return True
+            self.say("")
+        self.tell(
+            "Scanning the demo project with all four scanners. TruffleHog's live checks stay "
+            "off: the demo's fake keys must never be sent to a real provider."
+        )
+        code = self.securegate(
+            "scan", str(DEMO_DIR), "--mode", "repo", "--scanners", "all", "--no-verification",
+            "--out", str(DEMO_REPORT),
+            "--comment", str(DEMO_COMMENT),
+            "--summary", str(REPORTS / "demo-summary.md"),
+            "--sarif", str(REPORTS / "demo.sarif"),
+        )  # fmt: skip
+        if code == EXIT_BLOCK:
+            self.tell(
+                "That is the expected result: the demo project is full of planted fake secrets."
+            )
+        if code in (EXIT_PASS, EXIT_BLOCK):
+            self.last_comment = DEMO_COMMENT
+            self.say("")
+            if self.yes("Show the comment a pull request would get? [Y/n] ", default=True):
+                self.say("")
+                self.print_comment(DEMO_COMMENT)
+        return self.after_scan(code, DEMO_REPORT)
+
+    def show_comment(self) -> bool:
+        if not self.last_comment.is_file():
+            self.tell(
+                f"There is no pull request comment yet ({self.last_comment}). Choose 2 to scan "
+                "the demo project with all four scanners first."
+            )
+            return True
+        self.print_comment(self.last_comment)
+        return True
+
+    def print_comment(self, path: Path) -> None:
+        self.tell(
+            "On GitHub, the merge gate posts this as a comment on the pull request, and shows it "
+            "on the check's page too. Masked values only."
+        )
+        self.say("")
+        width = max(30, self.terminal.columns() - len(MARGIN) - 1)
+        markdown = path.read_text(encoding="utf-8", errors="replace")
+        for line in terminal_lines(markdown, width=width, color=self.terminal.color):
+            self.say(f"{MARGIN}{line}" if line else "")
+
     def scan_project(self) -> bool:
         self.tell(
             "Which folder? Type its path, or drag the folder into this window. "
@@ -203,8 +291,29 @@ class Menu:
         else:
             self.tell("It is not a Git project, so SecureGate scans its files as they are now.")
             mode = "dir"
+        argv = ["scan", str(target), "--mode", mode, "--out", str(OWN_REPORT)]
+        four = (
+            mode == "repo"
+            and self.program_found("trufflehog")
+            and self.yes(
+                "Use all four scanners (Gitleaks, TruffleHog, Semgrep and Bandit)? [Y/n] ",
+                default=True,
+            )
+        )
+        if four:
+            argv += ["--scanners", "all", "--comment", str(OWN_COMMENT)]
+            live = self.yes(
+                "Let TruffleHog ask each provider whether the keys it finds still work? This "
+                "sends every key it finds to its provider. [y/N] ",
+                default=False,
+            )
+            if not live:
+                argv.append("--no-verification")
         self.say("")
-        code = self.securegate("scan", str(target), "--mode", mode, "--out", str(OWN_REPORT))
+        code = self.securegate(*argv)
+        if four and code in (EXIT_PASS, EXIT_BLOCK):
+            self.last_comment = OWN_COMMENT
+            self.tell("Choose 3 on the menu to see the comment a pull request would get.")
         return self.after_scan(code, OWN_REPORT)
 
     def after_scan(self, code: int, report: Path) -> bool:
@@ -223,7 +332,7 @@ class Menu:
         if not self.last_report.is_file():
             self.tell(
                 f"There is no scan report yet ({self.last_report}). "
-                "Choose 1 to scan the demo project first."
+                "Choose 1 or 2 to scan the demo project first."
             )
             return True
         return self.show_dashboard(self.last_report)
@@ -325,3 +434,81 @@ class Menu:
 
     def paint(self, text: str, style: str) -> str:
         return paint(text, style, on=self.terminal.color)
+
+
+# --- the pull request comment, for a terminal ------------------------------------------------
+
+_CODE = re.compile(r"`([^`]*)`")
+_STRONG = re.compile(r"\*\*([^*]+)\*\*")
+_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f]")
+_CELL_EDGE = re.compile(r"(?<!\\)\|")  # `safe` writes a pipe inside a cell as \|
+_ENTITIES = (("\\|", "|"), ("&lt;", "<"), ("&gt;", ">"), ("&amp;", "&"))
+
+
+def terminal_lines(markdown: str, *, width: int, color: bool) -> list[str]:
+    """SecureGate's pull request comment, readable in a terminal: headings stand out, the
+    checklist keeps its boxes, a scanner that did not run is red, and the hidden marker and the
+    HTML around the folded list are left out. Text wraps at `width` without splitting a path or
+    a masked value; a table is shown in columns (see _table)."""
+    lines: list[str] = []
+    table: list[str] = []
+    caution = False
+    for raw in markdown.splitlines():
+        line = _CONTROL.sub("", raw).rstrip()
+        if line.startswith("|"):
+            table.append(line)
+            continue
+        lines += _table(table, width=width, color=color)
+        table = []
+        if line.strip() == MARKER or line in ("<details>", "</details>"):
+            continue
+        if line == "> [!CAUTION]":
+            caution = True
+            continue
+        style, indent = "", ""
+        if line.startswith("#"):
+            line, style = line.lstrip("#").strip(), BOLD
+        elif line.startswith("<summary>") and line.endswith("</summary>"):
+            line, style = line[len("<summary>") : -len("</summary>")], BOLD
+        elif line.startswith("> "):
+            line = f"CAUTION: {line[2:]}" if caution else line[2:]
+            style = BOLD + RED if caution else ""
+            caution = False
+        elif bullet := re.match(r"- (\[ \] )?", line):
+            indent = " " * bullet.end()
+        pieces = textwrap.wrap(
+            _plain(line),
+            width=width,
+            subsequent_indent=indent,
+            break_long_words=False,
+            break_on_hyphens=False,
+        )
+        lines += [paint(piece, style, on=color) for piece in pieces] or [""]
+    return lines + _table(table, width=width, color=color)
+
+
+def _table(rows: list[str], *, width: int, color: bool) -> list[str]:
+    """A Markdown table in aligned columns, its header in bold. When the columns would be wider
+    than `width`, each row stays as written instead, so no row is ever cut. The |---| line
+    under the header is left out either way."""
+    rows = [row for row in rows if re.sub(r"[|:\s-]", "", row)]
+    cells = [[_plain(cell.strip()) for cell in _CELL_EDGE.split(row)[1:-1]] for row in rows]
+    if not rows or len({len(row) for row in cells}) > 1:
+        return [_plain(row) for row in rows]
+    widths = [max(map(len, column)) for column in zip(*cells, strict=True)]
+    if sum(widths) + 2 * (len(widths) - 1) > width:
+        return [_plain(row) for row in rows]
+    aligned = [
+        "  ".join(cell.ljust(size) for cell, size in zip(row, widths, strict=True)).rstrip()
+        for row in cells
+    ]
+    return [paint(aligned[0], BOLD, on=color), *aligned[1:]]
+
+
+def _plain(text: str) -> str:
+    """Markdown marks out, the text in: `code` and **bold** lose their marks, and the escapes
+    SecureGate writes (\\| and the HTML entities) become their characters again."""
+    text = _STRONG.sub(r"\1", _CODE.sub(r"\1", text))
+    for entity, character in _ENTITIES:
+        text = text.replace(entity, character)
+    return text

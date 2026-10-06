@@ -9,7 +9,9 @@ from pathlib import Path
 
 import pytest
 
+from fake_code_scanners import FakeBandit, FakeSemgrep
 from fake_gitleaks import FakeGitleaks, entry
+from fake_trufflehog import FakeTruffleHog
 from helpers import fake_aws_key_id, random_text, scan_args
 from securegate import __version__
 from securegate.cli import main
@@ -39,16 +41,33 @@ FINDING_FIELDS = [
 ]
 
 
-def test_version_prints_securegate_and_gitleaks(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = main(["version"], runner=FakeGitleaks(version="8.30.1"))
+def test_version_prints_securegate_and_its_four_scanners(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    scanners = {"trufflehog": FakeTruffleHog(), "semgrep": FakeSemgrep(), "bandit": FakeBandit()}
+    exit_code = main(["version"], runner=FakeGitleaks(version="8.30.1"), tool_runners=scanners)
     assert exit_code == 0
-    assert capsys.readouterr().out.splitlines() == [f"securegate {__version__}", "gitleaks 8.30.1"]
+    assert capsys.readouterr().out.splitlines() == [
+        f"securegate {__version__}",
+        "gitleaks 8.30.1",
+        "trufflehog 3.97.9",
+        "semgrep 1.179.0",
+        "bandit 1.9.4",
+    ]
 
 
-def test_version_works_without_gitleaks(capsys: pytest.CaptureFixture[str]) -> None:
-    exit_code = main(["version"], runner=FakeGitleaks(missing=True))
+def test_version_works_without_any_scanner(capsys: pytest.CaptureFixture[str]) -> None:
+    missing = {
+        "trufflehog": FakeTruffleHog(missing=True),
+        "semgrep": FakeSemgrep(missing=True),
+        "bandit": FakeBandit(missing=True),
+    }
+    exit_code = main(["version"], runner=FakeGitleaks(missing=True), tool_runners=missing)
     assert exit_code == 0
-    assert "gitleaks not found" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "gitleaks not found" in out
+    for name in ("trufflehog", "semgrep", "bandit"):
+        assert f"{name} not found (`make scanners` installs it" in out
 
 
 def test_table_shows_decision_rule_location_and_masked_value(run_cli, tmp_path: Path) -> None:
