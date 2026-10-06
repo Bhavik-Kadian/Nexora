@@ -123,6 +123,16 @@ def looks_secret(text: str, patterns: Sequence[re.Pattern[str]] = ()) -> bool:
     return redact_text(text, patterns) != text
 
 
+def contains_value(lines: Iterable[str], target: Target, key: bytes) -> bool | None:
+    """Whether a finding's value is on any of `lines`, such as the newest version of its file.
+    None for a short value: searching every short substring of a whole file would be slow."""
+    masked = target.masked_value
+    if not (len(masked) == 2 * MASK_SHOWS + 4 and masked[MASK_SHOWS : MASK_SHOWS + 4] == "****"):
+        return None
+    start = masked[:MASK_SHOWS]
+    return any(start in line and _locate(line, target, key) is not None for line in lines)
+
+
 def _locate(line: str, target: Target, key: bytes) -> str | None:
     """The value on `line` whose fingerprint is the target's, or None."""
     if len(line) > MAX_SEARCH_LINE:

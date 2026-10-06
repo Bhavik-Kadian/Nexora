@@ -102,9 +102,14 @@ def run_cli(
     report_file = tmp_path / "findings.json"
 
     def run(
-        *args: str, runner: Runner | None = None, tool_runners: dict[str, Any] | None = None
+        *args: str,
+        runner: Runner | None = None,
+        tool_runners: dict[str, Any] | None = None,
+        model_factory: Any = None,
     ) -> CliRun:
-        exit_code = main(list(args), runner=runner, tool_runners=tool_runners)
+        exit_code = main(
+            list(args), runner=runner, tool_runners=tool_runners, model_factory=model_factory
+        )
         captured = capsys.readouterr()
         report = (
             json.loads(report_file.read_text(encoding="utf-8")) if report_file.exists() else None
