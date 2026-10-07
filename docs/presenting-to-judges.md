@@ -1,5 +1,7 @@
 # Presenting SecureGate to judges
 
+**Want the easy version?** [Demo day](demo-day.md) is the whole demo on one page, done entirely from SecureGate's menu: what to press, what the judges see, and what to say. This page is the full script, with every command.
+
 This page is your script for showing SecureGate live: what to prepare, what to type, what the judges will see and what to say. The full demo takes about 13 minutes. Everything except the GitHub part works without the internet.
 
 Type each command into **PowerShell**, in the project folder (see "Where do I type the commands?" below). Copy one block at a time. The quoted boxes are what to say: put them in your own words.
@@ -143,7 +145,7 @@ It ends with `Semgrep 1.179.0 and Bandit 1.9.4: installed`. Then try `make scan-
 make check
 ```
 
-It takes about a minute and ends with a line like `828 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
+It takes about a minute and ends with a line like `981 passed, 1 skipped`. The skipped test only runs on macOS and Linux. If any test failed, fix that before the day.
 
 4. Turn on the laptop gate, for step 6:
 
@@ -454,7 +456,7 @@ No internet? Show your screenshots or video, `reports\demo-comment.md` from step
 make test
 ```
 
-After about a minute, the judges see the scorecards, and then the last line: `828 passed, 1 skipped`.
+After about a minute, the judges see the scorecards, and then the last line: `981 passed, 1 skipped`.
 
 ```
 repo mode, seed 42
@@ -472,7 +474,7 @@ planted lines: 20 (9 secret, 11 decoy)
 
 A second scorecard follows for `dir` mode. It only reads today's files, so it also misses the deleted Stripe key. With the other three scanners installed, more follow: one for all four scanners together (16 hits and only 1 miss) and one for each scanner alone, which shows what each of them adds.
 
-> Over 800 automatic tests check SecureGate on every change. Some run the real Gitleaks, TruffleHog, Semgrep and Bandit; others fail if a whole fake secret ever appears in any output: a report, a dashboard page, a pull request comment or a SARIF file. The scorecard compares a fresh scan of the demo with its answer sheet, and we show the real numbers: Gitleaks alone handles 15 of the 20 planted lines exactly as expected; all four scanners together handle 16, and only one password is still missed, inside a Dockerfile. That is our next improvement.
+> Nearly 1,000 automatic tests check SecureGate on every change. Some run the real Gitleaks, TruffleHog, Semgrep and Bandit; others fail if a whole fake secret ever appears in any output: a report, a dashboard page, a pull request comment or a SARIF file. The scorecard compares a fresh scan of the demo with its answer sheet, and we show the real numbers: Gitleaks alone handles 15 of the 20 planted lines exactly as expected; all four scanners together handle 16, and only one password is still missed, inside a Dockerfile. That is our next improvement.
 
 | Word | Meaning |
 |---|---|
@@ -516,7 +518,7 @@ A second scorecard follows for `dir` mode. It only reads today's files, so it al
 
 **Does it need the internet?** No. Scans, the dashboard and the laptop gate work offline. Only the merge gate needs GitHub. Semgrep downloads its p/secrets rules; without the internet it runs SecureGate's own rules and says so.
 
-**What is it built with?** Python 3.12; Gitleaks 8.30.1, TruffleHog 3.97.9, Semgrep 1.179.0 and Bandit 1.9.4 for finding; Flask for the dashboard; pre-commit for the laptop gate; GitHub Actions for the merge gate, and GitHub's command line, gh, for the demo pull requests; with 829 automatic tests.
+**What is it built with?** Python 3.12; Gitleaks 8.30.1, TruffleHog 3.97.9, Semgrep 1.179.0 and Bandit 1.9.4 for finding; Flask for the dashboard; pre-commit for the laptop gate; GitHub Actions for the merge gate; GitHub's command line, gh, for the demo pull requests; and Azure AI Foundry for the AI agents; with 982 automatic tests.
 
 ## If something goes wrong
 

@@ -30,7 +30,7 @@ def env_fixes(messages: list) -> object:
     """The fix agent's answer: read each key from its usual environment variable."""
     fixes = []
     for item in given(messages):
-        name = item["usual_environment_variable"]
+        name = item["name_on_the_line"] or item["usual_environment_variable"] or "KEY"
         fixes.append(
             {
                 "finding_id": item["finding_id"],

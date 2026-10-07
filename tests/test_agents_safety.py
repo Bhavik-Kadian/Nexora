@@ -211,7 +211,7 @@ def test_clean_text_keeps_email_addresses_and_cuts_at_its_limit() -> None:
     assert clean_text("Tell security@example.com today.", 200) == "Tell security@example.com today."
     cleaned = clean_text("word " * 100, 40)
     assert len(cleaned) <= 40
-    assert cleaned.endswith(chr(0x2026))
+    assert cleaned.endswith("...")
 
 
 def test_clean_code_accepts_a_line_that_reads_the_environment() -> None:
@@ -421,3 +421,16 @@ def test_no_planted_value_survives_redaction_of_the_demo_project(demo_repo: Demo
     assert leaked(demo_repo.planted, "\n".join(sent)) == []
     assert all(withheld)  # only a value over several lines, or on an over-long line, is withheld
     assert len(sent) >= len(result.findings) - 2
+
+
+def test_placeholders_become_words_and_punctuation_becomes_plain() -> None:
+    raw = (
+        f"The line reads KEY = {chr(34)}{VALUE_MARK}{chr(34)}; it"
+        + chr(0x2019)
+        + "s live "
+        + chr(0x2014)
+        + " revoke it"
+        + chr(0x2026)
+    )
+    expected = 'The line reads KEY = "[secret]"; it' + "'" + "s live - revoke it..."
+    assert clean_text(raw, 200) == expected

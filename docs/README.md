@@ -8,10 +8,13 @@ It checks each commit on your laptop and each pull request on GitHub, and a read
 
 **See it work:** on Windows, double-click `Start SecureGate.cmd` in the SecureGate folder. SecureGate opens with its menu. Type 1 and press Enter to scan a demo project full of fake secrets, then press Enter again to see the results in your browser. Type 9 to see the gate on GitHub: SecureGate opens a real pull request with a fake key, and shows how the check stops it. Type A for the AI agents: triage, fixes and an incident plan for the findings. The first time, install the tools in step 1 of [Getting started](getting-started.md).
 
+**Showing it to judges?** Start with [Demo day](demo-day.md): the whole demo on one page, from the menu.
+
 ## Pages
 
 | Page | Read it when you want to... |
 |---|---|
+| [Demo day](demo-day.md) | show SecureGate to judges in 10 minutes, from the menu, step by step |
 | [Getting started](getting-started.md) | install SecureGate and run your first scan |
 | [How it works](how-it-works.md) | follow one leaked key from discovery to report |
 | [Dashboard](ui.md) | see a report in your browser, download or print it, or change the dashboard's colours |
