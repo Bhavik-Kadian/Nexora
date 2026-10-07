@@ -37,7 +37,8 @@ flowchart TD
     S --> M
     B --> M
     M --> P["policy.yaml decides: the first matching rule wins"]
-    P --> O["One PR comment, job summary, Security tab, findings.json"]
+    P --> AI["AI agents: triage, fix and incident advice, never a decision"]
+    AI --> O["One PR comment, job summary, Security tab, findings.json"]
     P -->|"exit code 0"| OK["Green check: can be merged"]
     P -->|"exit code 1 or 2"| NO["Red check: the ruleset locks the merge button"]
 ```
@@ -89,6 +90,17 @@ So a live key in `tests/` only warns, unless TruffleHog confirms it is live: rul
 | `findings.json` | a download of the run, called `findings` | everything, masked; `make ci-report` opens it in the dashboard |
 
 Every output holds masked values only. A pull request from a fork gets no comment and no Security tab results, because GitHub gives it a read-only token; its check still runs and decides.
+
+### The AI agents (optional)
+
+After the scan, the gate asks SecureGate's [AI agents](agents.md) about the findings, and the comment and the summary get a section **AI advice: the policy decided, not the AI**: the triage of each finding, a suggested fix, and the incident plan for blocked keys. The agents run after the exit code is saved, and the step may fail without failing the check: they never decide. They never see a whole secret.
+
+They need three settings on GitHub: **Settings**, then **Secrets and variables**, then **Actions**:
+
+- the secret `SECUREGATE_AI_KEY`: the key of the Azure AI Foundry resource;
+- the variables `SECUREGATE_AI_ENDPOINT` (such as `https://securegate-ai.openai.azure.com`) and `SECUREGATE_AI_DEPLOYMENT` (`gpt-5.4-mini`).
+
+Or, in the SecureGate folder, as the repository's owner: `gh secret set SECUREGATE_AI_KEY` (it asks for the key, hidden), `gh variable set SECUREGATE_AI_ENDPOINT --body https://...` and `gh variable set SECUREGATE_AI_DEPLOYMENT --body gpt-5.4-mini`. Without them, and for pull requests from forks (GitHub gives them no secrets), the comment says the agents were not asked.
 
 ## Why only the merge gate is the real control
 

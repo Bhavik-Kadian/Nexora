@@ -275,3 +275,9 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Why:** a model's whole rewritten line could change what the line does, and it only ever saw `<STRING>` in place of the line's other strings. A literal swapped by SecureGate changes exactly one thing, and the edit is checked again against the real file: the key must be gone from the line.
 - **Not in the merge gate:** fixing would need a token that can push. The gate keeps its read-only token; the comment shows the suggestion instead.
 - **Rejected:** applying the model's line as it is; a fix for a key that is only in an older commit (only revoking it helps); fixing a key inside a longer string, such as a web address with a password (left for a person).
+
+## 59. The merge gate asks the agents, after it has decided
+- **Chose:** a step "Ask the AI agents (advice only)" right after the scan: only after a finished scan (exit code 0 or 1), with `continue-on-error` and a 3-minute limit, before the summary, the comment and the `findings.json` artifact are written, so all three carry the advice. The key comes from the repository secret `SECUREGATE_AI_KEY`, the endpoint and deployment from repository variables, and the repository's visibility is passed on for the incident plan. Like every step, it runs SecureGate from the base branch: the pull request's code is only data.
+- **Why:** reviewers see the advice where they already look, and the check stays exactly the policy's verdict.
+- **Forks** get no secrets from GitHub, so their comment says the agents were not asked; their check is unchanged.
+- **Rejected:** running the agents before the policy (they would look like part of the decision); failing the check when Azure is down.
