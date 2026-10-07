@@ -46,6 +46,7 @@ A demo pull request never changes your own files: SecureGate builds it in a temp
 | 3. The key deleted in a later commit | **3** | `make demo-deleted` | still red | 2 min |
 | 4. Decoys that look like secrets | **4** | `make demo-decoys` | green, each one explained | 2 min |
 | 5. Risky handling of secrets | **5** | `make demo-risky` | green, with warnings | 2 min |
+| 6. The AI agents (optional) | **6**, then **F** | `securegate agents`, then `securegate agent-fix --pr N` | advice next to the red check, then a fix pull request | 3 min |
 
 Short on time? Show scene 2, then scene 4: a real leak stopped, and no false alarm blocking anyone.
 
@@ -114,6 +115,18 @@ Choose **6** at any time to see the result of the last demo pull request again, 
 **The judges see:** the check turns **green**, with two warnings: **rule 13: risky-handling**, found by Semgrep, for the token written to the log (`demo-app/client.py:14`), and **rule 10: hardcoded-passwords**, found by Bandit, for the password (`demo-app/client.py:10`). Gitleaks and TruffleHog find nothing here: there is no key format to spot. That is what the code checkers are for.
 
 > Leaks are not only keys pasted into code. Here the key comes from the environment, but the code prints it into the log, where many more people can read it. Semgrep and Bandit read the code itself and catch that. These are warnings, not blocks: the developer sees them in the pull request, with what to do.
+
+## Scene 6. The AI agents (3 minutes, optional)
+
+This needs the [AI agents](agents.md) set up (menu **A**, then **4**), and works best right after scene 2.
+
+**Menu: 9, then 6.** The menu waits for the gate's result, as in scene 2. If the merge gate already asked the agents, their advice is in the report; otherwise the menu asks `Ask the AI agents about these findings? [Y/n]`: press Enter. Then open the report in the dashboard and select **AI advice** at the top.
+
+**The judges see:** the triage of the token, likely real, with high confidence and why; a suggested fix, a line that reads `ACME_PAY_API_KEY` from the environment; and the incident plan: revoke the key at ACME Pay, check its logs since the commit, then replace it.
+
+Then **F** on the same screen: the fix agent opens a second pull request into the demo's branch. Open it in the browser: its change replaces the token with `os.environ["ACME_PAY_API_KEY"]`, and its description says the key is still in the history, so it must be revoked.
+
+> Three AI agents help the reviewer: one explains each finding, one writes the fix, and one plans the response. They never see a whole key: SecureGate takes every value out before anything is sent. And they only advise: the policy decided, the check is still red, and only revoking the key makes it safe.
 
 ## Clean up
 

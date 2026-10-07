@@ -142,9 +142,9 @@ def test_withheld_advice_says_so(advised: Path) -> None:
 def test_advice_that_was_not_asked_for_says_why(sample_report: Path, tmp_path: Path) -> None:
     path = tmp_path / "findings.json"
     path.write_bytes(sample_report.read_bytes())
-    skipped = {"status": "skipped", "note": "The AI agents are not set up on this computer."}
+    skipped = {"status": "skipped", "note": "The AI agents are not set up where this scan ran."}
     comment = render_comment(loaded(with_advice(path, skipped)))
-    assert "The AI agents are not set up on this computer." in comment
+    assert "The AI agents are not set up where this scan ran." in comment
 
 
 def test_agents_that_did_not_answer_are_named(sample_report: Path, tmp_path: Path) -> None:

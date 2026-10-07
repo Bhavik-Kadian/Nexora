@@ -26,7 +26,7 @@ from securegate.report import write_json
 from securegate.scanners.changes import git_runner
 from securegate.ui.report_view import ReportProblem, ReportView, load_report
 
-NOT_SET_UP = "The AI agents are not set up on this computer, so none were asked."
+NOT_SET_UP = "The AI agents are not set up where this scan ran, so none were asked."
 NOT_KEPT = "The agents' answer did not pass SecureGate's checks, so it was not kept."
 
 
