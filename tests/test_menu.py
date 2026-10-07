@@ -27,6 +27,7 @@ from helpers import (
     git_installed,
     leaked,
 )
+from securegate.agents.fix_pr import LAST_FIX
 from securegate.cli import build_parser, main
 from securegate.demo.generator import MARKER_FILE, DemoResult
 from securegate.demo.pull_requests import LAST_DEMO
@@ -65,6 +66,7 @@ class Keyboard:
 
 
 PR_URL = "https://github.com/demo-owner/demo-repo/pull/7"
+FIX_URL = "https://github.com/demo-owner/demo-repo/pull/8"
 
 
 def note_demo_pr(scenario: str, number: int = 7) -> None:
@@ -99,6 +101,9 @@ class Commands:
             (out / MARKER_FILE).touch()
         if argv[0] == "demo-pr" and code == 0:
             note_demo_pr(argv[1])
+        if argv[0] == "agent-fix" and code == 0:
+            LAST_FIX.parent.mkdir(parents=True, exist_ok=True)
+            LAST_FIX.write_text(json.dumps({"url": FIX_URL, "branch": "demo/fix-x"}), "utf-8")
         return code
 
     @property
@@ -761,7 +766,7 @@ def test_9_checks_that_everything_is_ready() -> None:
 
 def test_an_unknown_choice_on_the_merge_gate_screen_says_what_to_type() -> None:
     menu = run("9", "x", "b", "q")
-    assert "Type a number from 1 to 9, or B to go back, then press Enter." in menu.text
+    assert "Type a number from 1 to 9 or F, or B to go back, then press Enter." in menu.text
     assert menu.commands.ran == []
 
 
@@ -873,3 +878,29 @@ def test_the_ai_commands_are_real_securegate_commands(folder: Path) -> None:
     assert menu.commands.names == ["agents", "ai-setup", "ai-check", "ai-check"]
     for argv in menu.commands.ran:
         build_parser().parse_args(argv)
+
+
+# --- F: the fix agent, on the merge gate screen ---------------------------------------------------
+
+
+def test_f_needs_a_demo_pull_request_and_the_ai_agents() -> None:
+    assert "There is no demo pull request yet." in run("9", "f", "", "b", "q", ai_ready=True).text
+    note_demo_pr("leak")
+    menu = run("9", "f", "", "b", "q")
+    assert "set them up first, with A, then 4" in menu.text
+    assert menu.commands.ran == []
+
+
+def test_f_opens_a_fix_pull_request_and_offers_it_in_the_browser() -> None:
+    note_demo_pr("leak", number=12)
+    menu = run("9", "f", "", "", "b", "q", ai_ready=True)
+    assert menu.commands.ran == [["agent-fix", "--pr", "12"]]
+    assert menu.urls == [FIX_URL]
+    build_parser().parse_args(menu.commands.ran[0])
+
+
+def test_f_that_opened_nothing_offers_nothing() -> None:
+    note_demo_pr("leak")
+    menu = run("9", "f", "", "b", "q", ai_ready=True, commands=Commands({"agent-fix": 2}))
+    assert "No fix pull request was opened" in menu.text
+    assert menu.urls == []

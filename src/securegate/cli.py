@@ -213,6 +213,17 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser(
         "ai-check", help="check that the AI agents are set up and that their model answers"
     )
+    agent_fix = commands.add_parser(
+        "agent-fix",
+        help="open a pull request that takes the keys out of a pull request's newest code",
+    )
+    agent_fix.add_argument(
+        "--pr", type=int, required=True, metavar="NUMBER", help="the pull request"
+    )
+    agent_fix.add_argument("--policy", default="policy.yaml", help="default: %(default)s")
+    agent_fix.add_argument(
+        "--gitleaks-config", default=".gitleaks.toml", help="default: %(default)s"
+    )
     return parser
 
 
@@ -259,6 +270,10 @@ def main(
             return _ai_setup()
         if args.command == "ai-check":
             return _ai_check(model_factory or _azure_model)
+        if args.command == "agent-fix":
+            return _agent_fix(
+                args, runner, _tools(tool_runners or {}), model_factory or _azure_model
+            )
         return _scan(args, runner, tool_runners or {})
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -504,6 +519,47 @@ def _print_checks(checks: Sequence[Check]) -> int:
     else:
         print("All checks passed.")
     return doctor_exit_code(list(checks))
+
+
+def _agent_fix(
+    args: argparse.Namespace,
+    runner: gitleaks.Runner,
+    tools: Tools,
+    model_factory: Callable[[], Model | None],
+) -> int:
+    from securegate.agents.fix_pr import open_fix_pr
+
+    model = model_factory()
+    if model is None:
+        raise ConfigError(
+            "agent-fix needs the AI agents: set them up with securegate ai-setup (or A, then 4, "
+            "in the menu)"
+        )
+    done = open_fix_pr(
+        args.pr,
+        Path.cwd(),
+        tools,
+        model=model,
+        key=load_hmac_key(os.environ, default_state_dir()),
+        runner=runner,
+        policy_path=Path(args.policy),
+        gitleaks_config=Path(args.gitleaks_config),
+    )
+    if done.url is None:
+        print(f"No fix pull request was opened for #{args.pr}: there was no line to fix.")
+    else:
+        print(f"Opened a fix pull request: {done.url}")
+        print(f"  branch: {done.branch} (into the branch of #{args.pr})")
+        for line in done.fixed:
+            where = f"{line.file}:{line.line}"
+            print(f"  {where}  {line.masked_value}  now read from {line.env_var}")
+    for reason in done.skipped:
+        print(f"  Left alone: {reason}")
+    print(
+        f"The keys are still in the history of #{args.pr}: revoke each one at its provider, "
+        "then set the new key as the environment variable."
+    )
+    return EXIT_PASS
 
 
 def _ai_check(model_factory: Callable[[], Model | None]) -> int:

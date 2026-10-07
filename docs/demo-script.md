@@ -65,7 +65,7 @@ Short on time? Show scene 2, then scene 4: a real leak stopped, and no false ala
 
 Meanwhile, reload the pull request in the browser: the check has its cross or tick, and SecureGate's comment is there.
 
-Choose **6** at any time to see the result of the last demo pull request again, and **7** for the report of the last pull request the gate checked, whichever it was. With commands: `make ci-report` downloads and opens that report, and `.venv\Scripts\securegate ci-report --pr 12 --wait` waits for pull request 12.
+Choose **6** at any time to see the result of the last demo pull request again, and **7** for the report of the last pull request the gate checked, whichever it was. Once the [AI agents](agents.md) are set up, **F** lets the fix agent open a second pull request, into the last demo's branch, that reads the key from the environment instead. With commands: `make ci-report` downloads and opens that report, and `.venv\Scripts\securegate ci-report --pr 12 --wait` waits for pull request 12.
 
 ## Scene 1. A harmless change (2 minutes)
 

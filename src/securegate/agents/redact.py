@@ -28,6 +28,7 @@ OWN_RULE_PREFIX = "securegate-"  # our Semgrep rules point at code, not at a sec
 MASK_SHOWS = 4  # mask.mask_value keeps the first and last 4 characters of a long value
 LONG_VALUE = 16  # values this long or longer are masked as abcd****wxyz; shorter ones as ****
 MAX_SEARCH_LINE = 400  # longer lines are not searched (and so never sent)
+MAX_SEARCH_LINES = 5000  # a file's lines searched for a value, at most
 RANDOM_LENGTH = 16
 RANDOM_ENTROPY = 3.5
 
@@ -121,6 +122,37 @@ def redact_text(text: str, patterns: Sequence[re.Pattern[str]] = ()) -> str:
 def looks_secret(text: str, patterns: Sequence[re.Pattern[str]] = ()) -> bool:
     """Whether the generic layer would take anything out of `text`."""
     return redact_text(text, patterns) != text
+
+
+def find_value_line(lines: Sequence[str], target: Target, key: bytes) -> int | None:
+    """The index of the first of `lines` that holds the finding's value, or None."""
+    masked = target.masked_value
+    long_value = len(masked) == 2 * MASK_SHOWS + 4 and masked[MASK_SHOWS : MASK_SHOWS + 4] == "****"
+    for index, line in enumerate(lines[:MAX_SEARCH_LINES]):
+        if long_value and masked[:MASK_SHOWS] not in line:
+            continue
+        if _locate(line, target, key) is not None:
+            return index
+    return None
+
+
+def replace_quoted_value(line: str, target: Target, key: bytes, expression: str) -> str | None:
+    """`line` with the quoted string literal that holds the finding's value replaced by
+    `expression`, such as os.environ["NAME"]; None when the value is not alone in exactly one
+    plain quoted literal (a prefixed literal such as f"..." or a value inside a longer string
+    needs a person). The value itself never leaves this module."""
+    value = _locate(line, target, key)
+    if value is None:
+        return None
+    for quote in ('"', "'", "`"):
+        literal = f"{quote}{value}{quote}"
+        if line.count(literal) != 1:
+            continue
+        start = line.index(literal)
+        if start > 0 and (line[start - 1].isalnum() or line[start - 1] == "_"):
+            return None  # a prefixed literal, such as f"...", r"..." or b"..."
+        return line[:start] + expression + line[start + len(literal) :]
+    return None
 
 
 def contains_value(lines: Iterable[str], target: Target, key: bytes) -> bool | None:

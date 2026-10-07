@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from securegate import __version__
+from securegate.agents.fix_pr import load_last_fix
 from securegate.demo.generator import MARKER_FILE
 from securegate.demo.pull_requests import LAST_DEMO, LastDemo, load_last_demo
 from securegate.errors import SecureGateError
@@ -84,6 +85,11 @@ GATE_DEMOS = (
 )
 GATE_CHOICES = (
     ("6", "See the result", "of the last demo pull request, then its report"),
+    (
+        "F",
+        "Fix it with the AI fix agent",
+        "a pull request into it that reads the key from the environment",
+    ),
     ("7", "Open the newest gate report", "of the last pull request checked, in the dashboard"),
     ("8", "Close every demo pull request", "and delete the demo/ branches"),
     ("9", "Check that all is ready", "scanners, rules, gh login and GitHub's settings"),
@@ -468,6 +474,7 @@ class Menu:
             "7": self.newest_gate_report,
             "8": self.close_demos,
             "9": self.gate_doctor,
+            "f": self.gate_fix,
         }
         for key, scenario, _, _ in GATE_DEMOS:
             actions[key] = lambda scenario=scenario: self.open_demo(scenario)
@@ -480,7 +487,7 @@ class Menu:
                 return False
             action = actions.get(choice)
             if action is None:
-                hint = "Type a number from 1 to 9, or B to go back, then press Enter."
+                hint = "Type a number from 1 to 9 or F, or B to go back, then press Enter."
                 continue
             self.perform(action, back_to="the merge gate menu")
 
@@ -569,6 +576,33 @@ class Menu:
         if not self.yes("Open the report in the dashboard? [Y/n] ", default=True):
             return True
         return self.show_dashboard(CI_REPORT)
+
+    def gate_fix(self) -> bool:
+        last = load_last_demo(LAST_DEMO)
+        if last is None:
+            self.tell("There is no demo pull request yet. Choose 1 to 5 to open one first.")
+            return True
+        if not self.ai_ready():
+            self.tell(
+                "The fix agent is one of the AI agents: set them up first, with A, then 4, on the "
+                "main menu."
+            )
+            return True
+        self.tell(
+            f"The fix agent opens a pull request into #{last.number} that reads the key from the "
+            "environment instead. SecureGate makes the edit itself, in a temporary folder, so "
+            "your own files stay as they are."
+        )
+        before = load_last_fix()
+        if self.securegate("agent-fix", "--pr", str(last.number)) != EXIT_PASS:
+            self.tell(self.paint("No fix pull request was opened: the lines above say why.", RED))
+            return True
+        url = load_last_fix()
+        if url is not None and url != before:
+            self.say("")
+            if self.yes("Open it in your browser? [Y/n] ", default=True):
+                self.open_url(url)
+        return True
 
     def close_demos(self) -> bool:
         if not self.yes(

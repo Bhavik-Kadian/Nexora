@@ -47,6 +47,22 @@ It takes about half a minute. The advice is kept in the report itself, so everyt
 - the pull request comment and the job summary: a section **AI advice: the policy decided, not the AI**;
 - the JSON download of the whole report.
 
+## Let the fix agent open a pull request
+
+For a pull request with a key in it, the fix agent can open a second pull request, **into the first one's branch**, that reads each key from an environment variable instead. In the menu: **9**, then **F**, for the last demo pull request. Or:
+
+```powershell
+.venv\Scripts\securegate agent-fix --pr 12
+```
+
+1. It refuses a folder with unsaved changes, a missing gh login, and a pull request that is closed or comes from a fork.
+2. It builds the fix in a temporary folder, from the pull request's branch, so your own files do not change.
+3. It scans the pull request's commits on this laptop, so every key is located with this laptop's fingerprint key.
+4. The fix agent picks each environment variable's name. **SecureGate makes the edit itself**: the quoted string that holds the key becomes `os.environ["NAME"]` in Python or `process.env.NAME` in JavaScript, and a Python file gets `import os` when it needs it. Nothing else in the file changes. A key that is not alone in its quoted string, such as a password inside a web address, is left for a person.
+5. It commits, pushes the one new branch, and opens the pull request. It names each line it changed, with the masked value only.
+
+A key that is only in an older commit, already deleted from the newest code, gets no fix: only revoking it helps. And a fix never undoes a leak: the key is still in the original pull request's history. The new pull request says so, and the incident plan lists the steps.
+
 ## If something goes wrong
 
 The findings, their decisions and the exit code never depend on the agents. When an agent cannot answer, the report says so, and everything else stays as it was.
