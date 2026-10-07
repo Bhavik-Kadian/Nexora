@@ -44,6 +44,13 @@ def _fresh_hmac_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(KEY_ENV_VAR, secrets.token_hex(32))
 
 
+@pytest.fixture(autouse=True)
+def _no_real_ai(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test ever reaches Azure: unless a test passes its own model, the AI agents count as
+    not set up, even on a laptop where .securegate/ai.json exists."""
+    monkeypatch.setattr("securegate.cli._azure_model", lambda: None)
+
+
 @pytest.fixture(scope="session")
 def demo_repo(tmp_path_factory: pytest.TempPathFactory) -> DemoResult:
     """The demo repo from the packaged catalog with seed 42, built once per test run."""

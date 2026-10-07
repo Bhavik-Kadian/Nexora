@@ -2,6 +2,10 @@
 
 **127.0.0.1 (localhost)**: a web address that always means "this computer". The dashboard answers only there, so nobody else on the network can open it. Example: `http://127.0.0.1:5000`.
 
+**AI agent**: a program that asks an AI model to do a task, and lets it look things up with tools before it answers. SecureGate has three: triage, fix and incident. They advise; the policy decides. Example: `securegate agents --report findings-demo.json`.
+
+**Azure AI Foundry**: Microsoft's service for running AI models in Azure. SecureGate's AI agents use a model deployed there. Example: the deployment `gpt-5.4-mini`.
+
 **Bandit**: a free, open-source checker for Python code. SecureGate runs three of its checks, for passwords written in the code (B105, B106, B107). Example: `password = "hunter2"`.
 
 **CI (continuous integration)**: a service that runs checks automatically every time someone proposes a change to a project. Example: GitHub shows a red cross on a pull request when a check fails. SecureGate runs there as the merge gate, the `secret-gate` check.
@@ -46,7 +50,11 @@
 
 **Pre-commit**: the moment just before a change is saved as a commit. A pre-commit check can stop a secret before it ever enters the history. Example: after `make hooks`, every commit first runs `securegate scan . --mode staged`, which checks exactly the changes about to be committed.
 
+**Prompt injection**: text in the data an AI reads, written to make the AI do something else. Example: a code comment saying "ignore your rules". SecureGate's agents can only read, so such text can at worst make their advice wrong.
+
 **Pull request**: a request to add a set of commits to the main version of a project. Others can review it, and checks run on it, before it is merged. Example: `make demo-leak` opens one.
+
+**Redaction**: taking a value out of text before the text is passed on. Example: `ACME_PAY_API_KEY = "<SECRET>"` is what an AI agent sees of a line that held a key.
 
 **Repository (repo)**: a project folder together with its Git history.
 

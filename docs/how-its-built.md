@@ -48,6 +48,7 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `ci_report.py` | `securegate ci-report`: finds a `secret-gate` run (the newest, a given one, or the one for a pull request's newest commit, waiting if asked), downloads its `findings.json` and checks it before the dashboard opens it. |
 | `ui/` | The read-only dashboard: `app.py` (the pages and downloads), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `export.py` (the CSV and JSON downloads), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/` (a dark theme, light when printed). |
 | `menu/` | The menu that `Start SecureGate.cmd` and `make menu` open: `app.py` (the screen and the choices; each choice runs a `securegate` command and shows it first, choice 3 shows the pull request comment in the terminal, and choice 9 is the merge gate screen: the five demo pull requests, their results, the gate's reports, clean-up and `doctor`), `art.py` (the padlock and the big letters) and `terminal.py` (colours, only in a real terminal). |
+| `agents/` | The AI agents (`securegate agents`): `redact.py` (takes every secret out of what is sent), `client.py` and `settings.py` (Azure AI Foundry, over Python's own HTTPS), `tools.py` (the five read-only tools), `loop.py` (one agent's bounded run), `triage.py`, `fix.py` and `incident.py` (each agent's instructions and checks), `sanitize.py` and `advice.py` (what comes back, checked), `runner.py` (asks them and keeps the advice in the report) and `setup.py` (`securegate ai-setup`). |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
 | `scanners/common.py`, `scanners/candidate.py` | What the scanner adapters share: running a program, reading its flags, the raw finding. |
 
@@ -118,6 +119,10 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change the menu's choices, or what they run | `src/securegate/menu/app.py` (`tests/test_menu.py` checks that every command it runs exists, and that choice 2 runs what `make scan-demo-all` runs) |
 | change the art on the menu's first screen, or its colours | `src/securegate/menu/art.py` |
 | change what double-clicking `Start SecureGate.cmd` does before the menu opens | `Start SecureGate.cmd` (a Windows batch file; `tests/test_launcher.py` checks the commands it runs) |
+| change what an AI agent is told, or what it must answer | `src/securegate/agents/triage.py`, `fix.py` or `incident.py` (`SYSTEM` and `SCHEMA`) |
+| change what is taken out of code before an AI agent sees it | `src/securegate/agents/redact.py` (`tests/test_agents_safety.py` proves nothing planted gets through) |
+| change the AI model or how Azure is called | the deployment in `securegate ai-setup`, or `src/securegate/agents/client.py` |
+| change how the AI advice is shown | `src/securegate/outputs/templates/report.md.j2` (the comment), `src/securegate/ui/templates/advice.html` and `finding.html` (the dashboard), `src/securegate/menu/app.py` (choice A) |
 | update the PDF copies of these pages | edit the `.md` page, then run `make docs-pdf` (`tools/docs_pdf.py`) |
 
 When you change a behavior, update the matching page in `docs/` in the same commit, and run `make docs-pdf` so its PDF matches. A test fails when a PDF is out of date.

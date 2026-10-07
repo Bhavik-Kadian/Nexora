@@ -1,7 +1,8 @@
 """`securegate doctor`: is this laptop, and the GitHub repository, ready for the merge gate demo?
 
 Each check prints PASS, FAIL or SKIP with one line of detail. Exit code 0 when nothing failed,
-1 when something did. The checks only read: they change nothing here or on GitHub.
+1 when something did. The checks only read: they change nothing here or on GitHub. The AI
+agents are checked too, when they are set up, with one tiny request that holds no code.
 """
 
 import json
@@ -12,6 +13,7 @@ from typing import Literal
 
 import yaml
 
+from securegate.agents.client import AgentUnavailable, Model
 from securegate.errors import SecureGateError
 from securegate.github import GitHubError, Tools, gh_logged_in, origin_slug, run
 from securegate.policy import load_policy
@@ -36,6 +38,18 @@ INSTALL_HINT = {
 
 Status = Literal["PASS", "FAIL", "SKIP"]
 
+# The AI connection check: one tiny request, with no repository data in it.
+PING = [
+    {"role": "system", "content": 'Answer with the JSON object {"ok": true} and nothing else.'},
+    {"role": "user", "content": "SecureGate connection check."},
+]
+PING_SCHEMA = {
+    "type": "object",
+    "properties": {"ok": {"type": "boolean"}},
+    "required": ["ok"],
+    "additionalProperties": False,
+}
+
 
 @dataclass(frozen=True, slots=True)
 class Check:
@@ -53,14 +67,45 @@ def run_checks(
     *,
     gitleaks_version: Callable[[], str | None],
     tool_runners: Mapping[str, ToolRunner],
+    ai_model: Callable[[], Model | None] | None = None,
 ) -> list[Check]:
-    """Every check, in the order they are printed. `root` is SecureGate's own checkout."""
+    """Every check, in the order they are printed. `root` is SecureGate's own checkout.
+    `ai_model` gives the AI agents' model (None: not set up); without it, AI is not checked."""
     workflow = _load_workflow(root / WORKFLOW)
     checks = _version_checks(workflow, gitleaks_version, tool_runners)
     checks.append(_policy_check(root))
     checks.append(_local_workflow_check(workflow))
     checks.extend(_github_checks(root, tools))
+    if ai_model is not None:
+        checks.extend(ai_checks(ai_model))
     return checks
+
+
+def ai_checks(ai_model: Callable[[], Model | None]) -> list[Check]:
+    """Whether the AI agents are set up, and whether their model answers one tiny request that
+    holds no repository data. Not being set up is a SKIP: the agents are optional."""
+    try:
+        model = ai_model()
+    except SecureGateError as err:
+        return [Check("FAIL", "AI agents", str(err))]
+    if model is None:
+        return [
+            Check("SKIP", "AI agents", "not set up (choose A in the menu, or securegate ai-setup)")
+        ]
+    settings = getattr(model, "settings", None)
+    where = f" at {settings.endpoint}" if settings is not None else ""
+    checks = [Check("PASS", "AI settings", f"model deployment {model.name}{where}")]
+    try:
+        reply = model.complete(PING, [], "connection_check", PING_SCHEMA)
+    except AgentUnavailable as err:
+        return [*checks, Check("FAIL", "AI connection", str(err))]
+    try:
+        answered = json.loads(reply.content or "").get("ok") is True
+    except (ValueError, AttributeError):
+        answered = False
+    if answered:
+        return [*checks, Check("PASS", "AI connection", "the model answered")]
+    return [*checks, Check("FAIL", "AI connection", "the model answered, but not as asked")]
 
 
 def exit_code(checks: list[Check]) -> int:

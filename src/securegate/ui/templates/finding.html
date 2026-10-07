@@ -43,6 +43,28 @@
   </section>
 </div>
 
+{% if ai_note or ai_fix %}
+<div class="columns">
+  {% if ai_note %}
+  <section class="panel" aria-labelledby="ai-triage-heading">
+    <h2 id="ai-triage-heading">AI triage</h2>
+    <p><strong>{{ verdict_words[ai_note.verdict] | capitalize }}</strong>, {{ ai_note.confidence }} confidence.</p>
+    <p>{{ ai_note.why }}</p>
+    <p><span class="secondary">Next:</span> {{ ai_note.next_step }}</p>
+    <p class="secondary">Advice from {{ ai_model or "an AI model" }}. The policy decided this finding, not the AI.</p>
+  </section>
+  {% endif %}
+  {% if ai_fix %}
+  <section class="panel" aria-labelledby="ai-fix-heading">
+    <h2 id="ai-fix-heading">AI fix suggestion</h2>
+    <p>Read <code>{{ ai_fix.env_var }}</code> from the environment instead{% if ai_fix.import_line %} (it needs <code>{{ ai_fix.import_line }}</code>){% endif %}:</p>
+    <pre><code>{{ ai_fix.replacement }}</code></pre>
+    <p>{{ ai_fix.why }}</p>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+
 {% for place in places %}
 <section class="panel" aria-labelledby="fields-heading-{{ loop.index }}">
   <h2 id="fields-heading-{{ loop.index }}">{% if places | length > 1 %}Place {{ loop.index }} of {{ places | length }}: every field{% else %}Every field{% endif %}</h2>

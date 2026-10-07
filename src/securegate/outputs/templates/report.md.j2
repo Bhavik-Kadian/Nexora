@@ -103,4 +103,63 @@ And {{ more_checklists }} more blocked findings: each needs the same steps.
 
 </details>
 {% endif %}
+{% if advice %}
+
+#### AI advice: the policy decided, not the AI
+
+{% if advice.withheld %}
+{{ advice.withheld }}
+{% elif advice.too_long %}
+The AI advice is too long for this comment. Open the report in the dashboard to read it.
+{% elif advice.status == "skipped" %}
+{{ advice.note or "The AI agents were not asked." }}
+{% elif advice.status == "failed" and not (advice.notes or advice.fixes or advice.incident) %}
+The AI agents did not answer, so there is no advice. The findings above are not affected.
+{% for problem in advice.problems %}
+- {{ problem }}
+{% endfor %}
+{% else %}
+Advice from {{ advice.model or "an AI model" }}, which saw masked values and code with every secret taken out. It can be wrong: check it before you act on it.
+{% if advice.notes %}
+
+**Triage**
+
+{% for item in advice.notes %}
+- `{{ item.location }}` (`{{ item.masked }}`): {{ item.verdict }}, {{ item.confidence }} confidence. {{ item.why }} Next: {{ item.next_step }}
+{% endfor %}
+{% if advice.more_notes %}
+- And {{ advice.more_notes }} more, in the dashboard.
+{% endif %}
+{% endif %}
+{% for fix in advice.fixes %}
+
+**Suggested fix** for `{{ fix.location }}`: read `{{ fix.env_var }}` from the environment{% if fix.import_line %} (it needs `{{ fix.import_line }}`){% endif %}. {{ fix.why }}
+
+{{ fix.code }}
+{% endfor %}
+{% if advice.more_fixes %}
+
+And {{ advice.more_fixes }} more suggested fixes, in the dashboard.
+{% endif %}
+{% if advice.incident %}
+
+<details>
+<summary>Incident plan: {{ advice.incident.severity }}</summary>
+
+{{ advice.incident.exposure }}
+
+{% for step in advice.incident.steps %}
+{{ loop.index }}. **{{ step.title }}**: {{ step.detail }}
+{% endfor %}
+
+Who to tell: {{ advice.incident.notify }}
+
+</details>
+{% endif %}
+{% for problem in advice.problems %}
+
+{{ problem }}
+{% endfor %}
+{% endif %}
+{% endif %}
 {% endif %}

@@ -38,3 +38,13 @@ What helps: `.github/CODEOWNERS` names who must review changes to `.github/`, `p
 **False alarms on our own code.** Scanning SecureGate itself with all four scanners gives 4 warnings, and nothing blocked: Bandit's B105 check takes dictionary keys such as `"acme_token"` in `src/securegate/demo/fakes.py` and `tests/fake_gitleaks.py` for passwords. We leave them as they are rather than rename code to please a scanner; a warning never blocks.
 
 **Only what the scanners know.** A secret with no known format and no telling name next to it, such as a random string in a variable called `x`, can go unnoticed. That is true of every secret scanner.
+
+## The AI agents
+
+**The advice can be wrong.** It is labelled as advice wherever it appears, and the policy's decision stands.
+
+**Code is only sent for reports made on this computer.** The value is taken out of the code by its fingerprint, which needs the fingerprint key that made the report. For a report made elsewhere, such as the merge gate's (opened with `make ci-report`), the agents only see the masked findings.
+
+**Text in the scanned code can try to steer the agents.** A code comment can say "ignore your rules". The agents' tools can only read what SecureGate chose to show, so such text can make the advice misleading, but cannot change a finding, a decision or a file.
+
+**They need Azure, and Azure costs money.** Each run is small and capped (at most 20 findings, and 8 model calls per agent), but Azure bills for every call. Without Azure, everything else in SecureGate works as before.

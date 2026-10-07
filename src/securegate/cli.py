@@ -22,9 +22,9 @@ from securegate.demo.generator import generate
 from securegate.demo.pull_requests import cleanup, open_demo_pr, save_last_demo
 from securegate.demo.scenarios import NAMES as SCENARIOS
 from securegate.demo.token import new_demo_token
+from securegate.doctor import Check, run_checks
 from securegate.doctor import exit_code as doctor_exit_code
-from securegate.doctor import run_checks
-from securegate.errors import SecureGateError
+from securegate.errors import ConfigError, SecureGateError
 from securegate.finding import DECISIONS
 from securegate.github import Tools, real_tools
 from securegate.mask import default_state_dir, load_hmac_key
@@ -206,6 +206,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     agents.add_argument("--comment", metavar="FILE", help="rewrite the pull request comment")
     agents.add_argument("--summary", metavar="FILE", help="rewrite the job summary")
+    commands.add_parser(
+        "ai-setup",
+        help="set up the AI agents: the Azure endpoint, the model deployment and its key",
+    )
+    commands.add_parser(
+        "ai-check", help="check that the AI agents are set up and that their model answers"
+    )
     return parser
 
 
@@ -243,11 +250,15 @@ def main(
         if args.command == "demo-cleanup":
             return _demo_cleanup(_tools(tool_runners or {}))
         if args.command == "doctor":
-            return _doctor(runner, tool_runners or {})
+            return _doctor(runner, tool_runners or {}, model_factory or _azure_model)
         if args.command == "ci-report":
             return _ci_report(args, _tools(tool_runners or {}))
         if args.command == "agents":
             return _agents(args, model_factory or _azure_model)
+        if args.command == "ai-setup":
+            return _ai_setup()
+        if args.command == "ai-check":
+            return _ai_check(model_factory or _azure_model)
         return _scan(args, runner, tool_runners or {})
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -388,6 +399,7 @@ def _menu(runner: gitleaks.Runner) -> int:
         run_command=lambda argv: _run_for_menu(argv, runner),
         open_dashboard=_open_dashboard_for_menu,
         gitleaks_version=gitleaks.gitleaks_version(runner),
+        ai_ready=_ai_configured,
     )
 
 
@@ -467,13 +479,22 @@ def _listed(items: Iterable[str]) -> str:
     return f": {', '.join(shown)}" if shown else ""
 
 
-def _doctor(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> int:
+def _doctor(
+    runner: gitleaks.Runner,
+    tool_runners: Mapping[str, ToolRunner],
+    model_factory: Callable[[], Model | None],
+) -> int:
     checks = run_checks(
         Path.cwd(),
         _tools(tool_runners),
         gitleaks_version=lambda: gitleaks.gitleaks_version(runner),
         tool_runners=tool_runners,
+        ai_model=model_factory,
     )
+    return _print_checks(checks)
+
+
+def _print_checks(checks: Sequence[Check]) -> int:
     for item in checks:
         print(item.line())
     failed = sum(item.status == "FAIL" for item in checks)
@@ -482,7 +503,43 @@ def _doctor(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> 
         print(f"{failed} check failed." if failed == 1 else f"{failed} checks failed.")
     else:
         print("All checks passed.")
-    return doctor_exit_code(checks)
+    return doctor_exit_code(list(checks))
+
+
+def _ai_check(model_factory: Callable[[], Model | None]) -> int:
+    from securegate.doctor import ai_checks
+
+    return _print_checks(ai_checks(model_factory))
+
+
+def _ai_setup() -> int:
+    import getpass
+
+    from securegate.agents.setup import run_setup
+
+    try:
+        run_setup(
+            ask=input,
+            ask_secret=getpass.getpass,
+            say=print,
+            state_dir=default_state_dir(),
+            env=os.environ,
+        )
+    except EOFError:
+        raise ConfigError(
+            "ai-setup needs someone at the keyboard; in scripts, set SECUREGATE_AI_ENDPOINT, "
+            "SECUREGATE_AI_DEPLOYMENT and SECUREGATE_AI_KEY instead"
+        ) from None
+    print("Check the connection with: securegate ai-check (or A, then 5, in the menu).")
+    return EXIT_PASS
+
+
+def _ai_configured() -> bool:
+    """Whether the AI agents are set up here, without contacting Azure."""
+    try:
+        return _azure_model() is not None
+    except SecureGateError:
+        return False
 
 
 def _ci_report(args: argparse.Namespace, tools: Tools) -> int:
@@ -544,8 +601,8 @@ def _agents(args: argparse.Namespace, model_factory: Callable[[], Model | None])
         write_outputs(report, targets, finished=True)
     if model is None:
         print(
-            "The AI agents are not set up, so none were asked; the report says so. They need "
-            "SECUREGATE_AI_ENDPOINT and SECUREGATE_AI_KEY."
+            "The AI agents are not set up, so none were asked; the report says so. Set them up "
+            "with: securegate ai-setup (or A, then 4, in the menu)."
         )
         return EXIT_PASS
     print(f"AI advice from {kept.model or 'the model'}, kept in {report}:")

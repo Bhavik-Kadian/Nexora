@@ -85,6 +85,9 @@ def findings_json(
         "summary": {"total": len(findings), **{d: counts[d] for d in DECISIONS}},
         "findings": [_json_finding(finding) for finding in findings],
     }
+    if decision is None and report.advice is not None:
+        # Only with every finding: advice about a finding that is left out would fail its checks.
+        data["advice"] = report.advice.to_dict()
     return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 

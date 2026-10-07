@@ -7,7 +7,8 @@ report through the dashboard's loader, which refuses any value that is not maske
 request comment that a scan wrote (made from that same checked report), and the note that
 `securegate demo-pr` leaves about the pull request it opened (reports/demo-pr.json). It opens
 that pull request's page in the browser when asked, and only if its link is a GitHub pull
-request link.
+request link. Choice A asks the AI agents about the last scan (securegate agents), and shows
+their advice from the checked report.
 """
 
 import re
@@ -24,7 +25,7 @@ from securegate.errors import SecureGateError
 from securegate.finding import DECISIONS
 from securegate.menu.art import TAGLINE, banner, render
 from securegate.menu.terminal import BOLD, CLEAR, CYAN, GREEN, GREY, RED, YELLOW, Terminal, paint
-from securegate.outputs.markdown import MARKER
+from securegate.outputs.markdown import MARKER, VERDICT_WORDS
 from securegate.policy import load_policy
 from securegate.programs import find_program
 from securegate.ui.report_view import ReportView, load_report
@@ -56,7 +57,21 @@ CHOICES = (
     ("7", "Rebuild the demo project", "start it over, exactly as new"),
     ("8", "Check the setup", "versions, scanners, rules and the laptop gate"),
     ("9", "The merge gate on GitHub", "demo pull requests, their results and reports"),
+    ("A", "AI agents", "triage, fixes and an incident plan for the last scan"),
     ("Q", "Quit", ""),
+)
+# The AI agents screen (A).
+AI_CHOICES = (
+    ("1", "Ask about the last scan", "they get masked findings, and code without its secrets"),
+    ("2", "Show their advice here", "triage, suggested fixes and the incident plan"),
+    ("3", "Open it in the dashboard", "the AI advice page, and each finding's panels"),
+    ("4", "Set up the AI agents", "the Azure endpoint, the model and its key (typed hidden)"),
+    ("5", "Check the connection", "one tiny request, with no code in it"),
+    ("B", "Back to the main menu", ""),
+)
+ASK_AGENTS = (
+    "Ask the AI agents about these findings? They get the masked findings, and code with every "
+    "secret taken out. [Y/n] "
 )
 # The merge gate screen (9). First the demo pull requests: key, `securegate demo-pr` scenario,
 # label and what the merge gate should say about it.
@@ -97,17 +112,21 @@ def run_menu(
     gitleaks_version: str | None,
     program_found: Callable[[str], bool] | None = None,
     open_url: OpenUrl | None = None,
+    ai_ready: Callable[[], bool] | None = None,
 ) -> int:
     """Show the menu until the person chooses Q, then return exit code 0.
 
     `run_command` runs one securegate command and returns its exit code. `open_dashboard`
     shows a report in the dashboard until the function it is given returns. `program_found`
-    says whether a scanner such as trufflehog is installed, and `open_url` opens a pull
-    request's page in the browser (tests pass their own).
+    says whether a scanner such as trufflehog is installed, `open_url` opens a pull request's
+    page in the browser, and `ai_ready` says whether the AI agents are set up (tests pass their
+    own).
     """
     found = program_found or _installed
     url = open_url or webbrowser.open
-    return Menu(terminal, run_command, open_dashboard, gitleaks_version, found, url).run()
+    menu = Menu(terminal, run_command, open_dashboard, gitleaks_version, found, url)
+    menu.ai_ready = ai_ready or (lambda: False)
+    return menu.run()
 
 
 def _installed(program: str) -> bool:
@@ -122,6 +141,7 @@ class Menu:
     gitleaks_version: str | None  # None: Gitleaks was not found
     program_found: Callable[[str], bool] = field(default=_installed)
     open_url: OpenUrl = field(default=webbrowser.open)
+    ai_ready: Callable[[], bool] = field(default=lambda: False)
     last_report: Path = DEMO_REPORT  # the report the dashboard opens
     last_comment: Path = DEMO_COMMENT  # the pull request comment that 3 shows
     hint: str = ""  # shown under the choices on the next screen
@@ -137,6 +157,7 @@ class Menu:
             "7": self.rebuild_demo,
             "8": self.check_setup,
             "9": self.merge_gate,
+            "a": self.ai_agents,
         }
         first = True
         while True:
@@ -148,7 +169,7 @@ class Menu:
                 return EXIT_PASS
             action = actions.get(choice)
             if action is None:
-                self.hint = "Type a number from 1 to 9, or Q to quit, then press Enter."
+                self.hint = "Type a number from 1 to 9 or A, or Q to quit, then press Enter."
                 continue
             self.perform(action, back_to="the menu")
 
@@ -194,7 +215,8 @@ class Menu:
 
     def choice_line(self, key: str, label: str, note: str) -> None:
         shown = self.paint(key, BOLD + CYAN)
-        self.say(f"{MARGIN}  {shown}  {label:<{LABEL_WIDTH}}{self.paint(note, GREY)}".rstrip())
+        label = label.ljust(LABEL_WIDTH) if len(label) < LABEL_WIDTH else f"{label} "
+        self.say(f"{MARGIN}  {shown}  {label}{self.paint(note, GREY)}".rstrip())
 
     def status(self) -> list[tuple[str, str]]:
         if self.gitleaks_version:
@@ -210,7 +232,13 @@ class Menu:
             ("Scanners", self.scanners_status()),
             ("Demo", self.demo_status()),
             ("Last scan", self.last_scan()),
+            ("AI agents", self.ai_status()),
         ]
+
+    def ai_status(self) -> str:
+        if self.ai_ready():
+            return "ready (A asks them about the last scan)"
+        return "not set up (A, then 4, sets them up)"
 
     def scanners_status(self) -> str:
         missing = [name for name in OTHER_SCANNERS if not self.program_found(name)]
@@ -360,6 +388,11 @@ class Menu:
         if code not in (EXIT_PASS, EXIT_BLOCK):
             self.tell(self.paint("The scan failed: the lines above say why.", RED))
             return True
+        if self.ai_ready():
+            self.say("")
+            if self.yes(ASK_AGENTS, default=True):
+                self.say("")
+                self.ask_agents(report)
         self.say("")
         if not self.yes("Open the results in the dashboard? [Y/n] ", default=True):
             return False
@@ -525,6 +558,13 @@ class Menu:
             self.tell(self.paint("No report was downloaded: the lines above say why.", RED))
             return True
         self.last_report = CI_REPORT
+        report = load_report(CI_REPORT)
+        has_advice = isinstance(report, ReportView) and report.advice is not None
+        if self.ai_ready() and not has_advice:
+            self.say("")
+            if self.yes(ASK_AGENTS, default=True):
+                self.say("")
+                self.ask_agents(CI_REPORT)
         self.say("")
         if not self.yes("Open the report in the dashboard? [Y/n] ", default=True):
             return True
@@ -548,6 +588,115 @@ class Menu:
                 "Each FAIL line says what to fix. The one-time setting on GitHub is explained in "
                 "docs/merge-gate.md."
             )
+        return True
+
+    # --- A: the AI agents --------------------------------------------------------------------
+
+    def ai_agents(self) -> bool:
+        actions: dict[str, Callable[[], bool]] = {
+            "1": self.ai_ask,
+            "2": self.ai_show,
+            "3": self.ai_dashboard,
+            "4": self.ai_setup,
+            "5": self.ai_check,
+        }
+        hint = ""
+        while True:
+            self.ai_home(hint)
+            choice = self.ask(f"{MARGIN}Type a number and press Enter (B: back): ").strip().lower()
+            hint = ""
+            if choice in BACK:
+                return False
+            action = actions.get(choice)
+            if action is None:
+                hint = "Type a number from 1 to 5, or B to go back, then press Enter."
+                continue
+            self.perform(action, back_to="the AI agents menu")
+
+    def ai_home(self, hint: str) -> None:
+        self.say(CLEAR if self.terminal.color else "")
+        self.say(MARGIN + self.paint("The AI agents", BOLD + CYAN))
+        self.say("")
+        self.tell(
+            "Three AI agents advise on a scan: triage (a real secret, or a false alarm?), fix (the "
+            "line rewritten to read an environment variable) and incident (what to do now about a "
+            "leaked key). The policy still decides every finding, and the agents never see a "
+            "whole secret."
+        )
+        self.say("")
+        self.say(f"{MARGIN}{self.paint('AI'.ljust(12), GREY)}{self.ai_status()}")
+        self.say(f"{MARGIN}{self.paint('Last scan'.ljust(12), GREY)}{self.advice_status()}")
+        self.say("")
+        for key, label, note in AI_CHOICES:
+            self.choice_line(key, label, note)
+        self.say("")
+        if hint:
+            self.say(MARGIN + self.paint(hint, YELLOW))
+
+    def advice_status(self) -> str:
+        if not self.last_report.is_file():
+            return "none yet"
+        report = load_report(self.last_report)
+        if not isinstance(report, ReportView):
+            return f"{self.last_report}: {report.title}"
+        if report.advice is None:
+            note = "advice withheld" if report.advice_note else "no advice yet"
+            return f"{self.last_report}: {note}"
+        return f"{self.last_report}: advice {report.advice.status}"
+
+    def ai_ask(self) -> bool:
+        if not self.ai_ready():
+            self.tell("The AI agents are not set up yet. Choose 4 to set them up first.")
+            return True
+        if not self.last_report.is_file():
+            self.tell("There is no scan yet. Scan something first: 1, 2 or 4 on the main menu.")
+            return True
+        if self.ask_agents(self.last_report) == EXIT_PASS:
+            self.say("")
+            self.tell("Choose 2 to read their advice here, or 3 for the dashboard.")
+        return True
+
+    def ask_agents(self, report: Path) -> int:
+        """Run `securegate agents` on `report`; rewrite the matching pull request comment too."""
+        argv = ["agents", "--report", str(report)]
+        comment = {DEMO_REPORT: DEMO_COMMENT, OWN_REPORT: OWN_COMMENT}.get(report)
+        if comment is not None and comment.is_file():
+            argv += ["--comment", str(comment)]
+        code = self.securegate(*argv)
+        if code != EXIT_PASS:
+            self.tell(self.paint("The agents could not be asked: the lines above say why.", RED))
+        return code
+
+    def ai_show(self) -> bool:
+        if not self.last_report.is_file():
+            self.tell("There is no scan yet. Scan something first: 1, 2 or 4 on the main menu.")
+            return True
+        report = load_report(self.last_report)
+        if not isinstance(report, ReportView):
+            self.tell(f"{report.title}. {report.detail}")
+            return True
+        width = max(30, self.terminal.columns() - len(MARGIN) - 1)
+        for line in advice_lines(report, width=width, color=self.terminal.color):
+            self.say(f"{MARGIN}{line}" if line else "")
+        return True
+
+    def ai_dashboard(self) -> bool:
+        if not self.last_report.is_file():
+            self.tell("There is no scan yet. Scan something first: 1, 2 or 4 on the main menu.")
+            return True
+        self.tell("In the dashboard, select AI advice at the top.")
+        return self.show_dashboard(self.last_report)
+
+    def ai_setup(self) -> bool:
+        if self.securegate("ai-setup") == EXIT_PASS:
+            self.say("")
+            if self.yes("Check the connection now? [Y/n] ", default=True):
+                self.say("")
+                self.securegate("ai-check")
+        return True
+
+    def ai_check(self) -> bool:
+        self.securegate("ai-check")
         return True
 
     # --- helpers ------------------------------------------------------------------------------
@@ -595,6 +744,65 @@ class Menu:
 
     def paint(self, text: str, style: str) -> str:
         return paint(text, style, on=self.terminal.color)
+
+
+# --- the AI advice, for a terminal -------------------------------------------------------------
+
+
+def advice_lines(report: ReportView, *, width: int, color: bool) -> list[str]:
+    """The AI agents' advice in a report, readable in a terminal."""
+    advice = report.advice
+    if advice is None:
+        if report.advice_note:
+            return textwrap.wrap(report.advice_note, width=width)
+        return ["Nobody has asked the AI agents about this scan yet: choose 1."]
+    lines = [
+        paint(
+            f"AI advice from {advice.model or 'an AI model'}: the policy decided, not the AI.",
+            BOLD,
+            on=color,
+        )
+    ]
+    for name, status in advice.agents.items():
+        if status.status != "ok":
+            text = f"The {name} agent: {status.status}" + (
+                f". {status.note}" if status.note else "."
+            )
+            lines += textwrap.wrap(text, width=width)
+    places: dict[str, object] = {}
+    for finding in report.findings:
+        places.setdefault(finding.id, finding)
+    if advice.triage:
+        lines += ["", paint("Triage", BOLD, on=color)]
+        for note in advice.triage:
+            finding = places.get(note.finding)
+            where = f"{finding.location} {finding.masked_value}" if finding else note.finding
+            verdict = VERDICT_WORDS.get(note.verdict, note.verdict)
+            lines.append(f"{where}: {verdict}, {note.confidence} confidence.")
+            lines += _indented(f"{note.why} Next: {note.next_step}", width)
+    if advice.fixes:
+        lines += ["", paint("Suggested fixes", BOLD, on=color)]
+        for fix in advice.fixes:
+            finding = places.get(fix.finding)
+            where = finding.location if finding else fix.finding
+            needs = f" (needs {fix.import_line})" if fix.import_line else ""
+            lines.append(f"{where}: read {fix.env_var} from the environment{needs}.")
+            lines.append(f"    {fix.replacement}")
+            lines += _indented(fix.why, width)
+    if advice.incident:
+        plan = advice.incident
+        lines += ["", paint(f"Incident plan ({plan.severity})", BOLD, on=color)]
+        lines += textwrap.wrap(plan.exposure, width=width)
+        for number, step in enumerate(plan.steps, start=1):
+            lines += textwrap.wrap(
+                f"{number}. {step.title}: {step.detail}", width=width, subsequent_indent="   "
+            )
+        lines += textwrap.wrap(f"Who to tell: {plan.notify}", width=width)
+    return lines
+
+
+def _indented(text: str, width: int) -> list[str]:
+    return textwrap.wrap(text, width=width, initial_indent="    ", subsequent_indent="    ")
 
 
 # --- the pull request comment, for a terminal ------------------------------------------------

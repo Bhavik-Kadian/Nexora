@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% from "_macros.html" import badge, severity %}
+{% block title %}AI advice{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div class="page-heading__text">
+    <h1>AI advice</h1>
+    <p class="lede">Three AI agents advise on this report: triage, fixes and an incident plan. The policy decided every finding; the agents only advise, and never saw a whole secret.</p>
+  </div>
+</div>
+
+{% if advice_note %}<p class="notice">{{ advice_note }}</p>{% endif %}
+
+{% if not advice %}
+<section class="panel" aria-labelledby="none-heading">
+  <h2 id="none-heading">No advice yet</h2>
+  <p class="empty">Nobody asked the AI agents about this report. In SecureGate's menu, choose A, then 1; or run <code>securegate agents --report {{ report.path.name }}</code>.</p>
+</section>
+{% else %}
+<section class="panel" aria-labelledby="agents-heading">
+  <h2 id="agents-heading">The agents</h2>
+  <dl class="facts">
+    <dt>Model</dt>
+    <dd>{{ advice.model or "Not recorded" }}</dd>
+    <dt>When</dt>
+    <dd>{{ advice.made_at or "Not recorded" }} <span class="secondary">(UTC)</span></dd>
+    {% for name, status in advice.agents.items() %}
+    <dt>{{ name | capitalize }}</dt>
+    <dd>{{ status.status }}{% if status.note %} <span class="secondary">{{ status.note }}</span>{% endif %}</dd>
+    {% endfor %}
+  </dl>
+  {% if advice.note %}<p>{{ advice.note }}</p>{% endif %}
+</section>
+
+{% if advice.incident %}
+<section class="panel" aria-labelledby="incident-heading">
+  <h2 id="incident-heading">Incident plan</h2>
+  <p>Severity: {{ severity(advice.incident.severity) }}</p>
+  <p>{{ advice.incident.exposure }}</p>
+  <p><span class="secondary">Who to tell:</span> {{ advice.incident.notify }}</p>
+  <ol class="steps">
+    {% for step in advice.incident.steps %}
+    <li><span><strong>{{ step.title }}</strong>: {{ step.detail }}</span></li>
+    {% endfor %}
+  </ol>
+</section>
+{% endif %}
+
+{% if notes %}
+<section class="panel" aria-labelledby="triage-heading">
+  <h2 id="triage-heading">Triage</h2>
+  <div class="table-wrap">
+    <table class="table">
+      <caption class="visually-hidden">The triage agent's view of each finding</caption>
+      <thead>
+        <tr><th scope="col">Finding</th><th scope="col">Decision</th><th scope="col">AI verdict</th><th scope="col">Why</th><th scope="col">Next</th></tr>
+      </thead>
+      <tbody>
+        {% for finding, note in notes %}
+        <tr>
+          <td><a href="/findings/{{ finding.id }}"><code>{{ finding.masked_value }}</code></a> <span class="secondary">{{ finding.location }}</span></td>
+          <td>{{ badge(finding.decision) }}</td>
+          <td>{{ verdict_words[note.verdict] }}, {{ note.confidence }} confidence</td>
+          <td>{{ note.why }}</td>
+          <td>{{ note.next_step }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+{% if fixes %}
+<section class="panel" aria-labelledby="fixes-heading">
+  <h2 id="fixes-heading">Suggested fixes</h2>
+  {% for finding, fix in fixes %}
+  <h3><a href="/findings/{{ finding.id }}"><code>{{ finding.location }}</code></a></h3>
+  <p>Read <code>{{ fix.env_var }}</code> from the environment instead{% if fix.import_line %} (it needs <code>{{ fix.import_line }}</code>){% endif %}. {{ fix.why }}</p>
+  <pre><code>{{ fix.replacement }}</code></pre>
+  {% endfor %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

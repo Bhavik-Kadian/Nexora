@@ -46,6 +46,7 @@ Replace `<repository-address>` with the address your team gave you. `cd` means "
 - **4** scans a project of your own (step 5): type its folder, or drag the folder into the window. For a Git project, it offers all four scanners when they are installed, and asks before TruffleHog sends any key it finds to its provider to check whether it still works. Unless you type y, nothing is sent.
 - **5** opens the dashboard on the last scan, **6** shows the rules in `policy.yaml`, **7** builds the demo project again from scratch, and **8** checks the setup.
 - **9** shows the merge gate on GitHub (step 8): it opens a demo pull request, waits for its check, and shows the result and the report.
+- **A** is for the AI agents (step 9): set them up, ask them about the last scan, and read their advice.
 - **Q** closes SecureGate.
 
 The menu runs the same commands as the steps below, and shows each one before it runs it. `make menu` opens the same menu from PowerShell, and on macOS and Linux.
@@ -130,6 +131,16 @@ make demo-leak
 ```
 
 `make doctor` prints PASS, FAIL or SKIP for each thing the demo needs. `make demo-leak` prints the pull request's address; after about a minute, its check turns red. In the menu, choose **9** to do the same without commands. `make demo-cleanup` closes every demo pull request again. The five scenes are in [Demo: the merge gate](demo-script.md).
+
+## 9. Ask the AI agents (optional)
+
+Three AI agents can advise on the findings: is each one real, how to fix the line, and what to do about a leaked key. They need a model in Azure AI Foundry, set up once: see [The AI agents](agents.md). Then, in the menu, choose **A**, then **4** to enter the endpoint and the key, and **5** to check the connection. From then on, SecureGate offers to ask them after every scan. Or:
+
+```powershell
+.venv\Scripts\securegate agents --report findings-demo.json
+```
+
+The agents only advise, and never see a whole secret. Their advice appears in the dashboard, under **AI advice**.
 
 ## On macOS or Linux
 
