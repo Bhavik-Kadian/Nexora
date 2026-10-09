@@ -57,7 +57,7 @@ The menu runs the same commands as the steps below, and shows each one before it
 make setup
 ```
 
-This creates a private Python space called `.venv` inside the folder and installs SecureGate into it. It takes a minute or two.
+This creates a private Python space called `.venv` inside the folder and installs SecureGate into it, with the exact versions of the packages it was tested with (`pyproject.toml` and `constraints.txt` list them). It takes a minute or two.
 
 ## 4. Your first scan: the demo repo
 

@@ -13,7 +13,7 @@ repos:
         # SecureGate from this checkout, so the hook works without activating .venv.
         language: python
         entry: python tools/precommit_hook.py
-        additional_dependencies: ["PyYAML>=6.0", "Jinja2>=3.1"]
+        additional_dependencies: ["PyYAML==6.0.3", "Jinja2==3.1.6"]
         pass_filenames: false
         always_run: true
         stages: [pre-commit]

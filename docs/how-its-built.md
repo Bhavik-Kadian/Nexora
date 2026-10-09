@@ -13,6 +13,8 @@ rules/securegate-risky.yml          SecureGate's own Semgrep rules: risky handli
 .github/workflows/secret-gate.yml   the merge gate: the check on every pull request
 .github/CODEOWNERS                  who reviews changes to the gate and its rules
 Makefile                            short commands: make setup, make test, make demo, ...
+pyproject.toml                      the package: its name, its command and its pinned packages
+constraints.txt                     the exact version of every package it installs, as tested
 Start SecureGate.cmd                double-click: open SecureGate's menu
 src/securegate/                     the program
 tools/                              helpers for the gates and the docs

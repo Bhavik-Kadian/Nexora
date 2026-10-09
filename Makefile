@@ -1,5 +1,6 @@
 # SecureGate: common tasks.
-#   make setup      create .venv (Python 3.12) and install SecureGate with its dev tools
+#   make setup      create .venv (Python 3.12) and install SecureGate with its dev tools, at the
+#                   exact versions it was tested with (pyproject.toml and constraints.txt)
 #   make test       run the tests (the demo scorecard is printed at the end)
 #   make lint       check code style with ruff
 #   make check      lint + test (run this before every commit)
@@ -46,7 +47,7 @@ DEMO_DIR := ../securegate-demo
 setup:
 	$(PYTHON) -m venv .venv
 	"$(VENV_PY)" -m pip install --upgrade pip
-	"$(VENV_PY)" -m pip install -e ".[dev]"
+	"$(VENV_PY)" -m pip install -e ".[dev]" -c constraints.txt
 
 test:
 	"$(VENV_PY)" -m pytest
