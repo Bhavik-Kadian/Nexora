@@ -60,7 +60,7 @@ An archived repository is read-only for everyone. `gh repo unarchive Bhavik-Kadi
 ## 6. The other repositories
 
 - [ ] **Nexora-backup**, the old Nexora: its first README and copies of early branches, all of them also in Nexora. Archive it with `gh repo archive Bhavik-Kadian/Nexora-backup --yes`, or delete it: `gh auth refresh -h github.com -s delete_repo`, then `gh repo delete Bhavik-Kadian/Nexora-backup --yes`.
-- [ ] **securegate-action-demo**, the scratch repository where the GitHub Action was tried on real pull requests: keep it as a working example, or delete it the same way.
+- [ ] **securegate-action-demo**, the scratch repository where the GitHub Action was tried on real pull requests. Its `main` has the workflow from [Protect any repository](docs/install.md), at `@v1.0.0`. Pull request #1, a harmless change, is green and still open; #2, a fake ACME Pay token, went red under rule 8 and was closed, and its branch `try/fake-token` still holds that fake token, which unlocks nothing. Keep it as a working example, or delete it the same way.
 
 ## 7. Team credits
 

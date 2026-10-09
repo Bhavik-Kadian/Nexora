@@ -55,7 +55,7 @@ Measured on 2026-10-10, on the close-out branch, on Windows 11 with Python 3.12.
 
 | Check | Result |
 |---|---|
-| `make check` (ruff, then the tests) | 1029 passed, 1 skipped: a test of POSIX file modes, which Windows does not have |
+| `make check` (ruff, then the tests) | 1034 passed, 1 skipped: a test of POSIX file modes, which Windows does not have |
 | Scorecard, the demo project with all four scanners | 16 of 20 planted lines as expected: 1 miss, 1 wrong decision, 2 false alarms |
 | Scorecard, Gitleaks alone | 15 of 20 as expected: 2 misses, 1 wrong decision, 2 false alarms |
 | `make demo`, then `make scan-demo` | SecureGate exits with code 1, which `make` reports as `Error 1`: 11 findings (6 block, 4 warn, 1 ignore), every value masked |
@@ -63,11 +63,24 @@ Measured on 2026-10-10, on the close-out branch, on Windows 11 with Python 3.12.
 | `securegate scan . --mode repo` | exit code 1 while the demo branches existed, for those same fake tokens only |
 | Links between the Markdown pages | 0 broken, checked by `tests/test_docs_links.py` |
 
-The checks after publishing, on a fresh clone of the published main and on the release, are added below by the last pull request of the close-out.
+### After publishing
+
+Measured on 2026-10-10, after the close-out pull request (#19) was merged and `v1.0.0` was released:
+
+| Check | Result |
+|---|---|
+| A fresh clone of `github.com/Bhavik-Kadian/Nexora`, at the `v1.0.0` tag, then `make setup` and `make check` | 1027 passed, 6 skipped: the POSIX test, and 5 tests of the real TruffleHog, Semgrep and Bandit, which `make scanners` installs |
+| `make demo`, then `make scan-demo`, in that clone | SecureGate exits with code 1 (`Error 1`): 11 findings (6 block, 4 warn, 1 ignore), every value masked |
+| `securegate scan . --mode repo`, in that clone | exit code 0, no findings: the demo branches are gone |
+| The merge gate on the close-out pull request | green: every commit scanned by all four scanners, on `ubuntu-24.04` |
+| The GitHub Action, on real pull requests in [securegate-action-demo](https://github.com/Bhavik-Kadian/securegate-action-demo) | a harmless change passed; a fake ACME Pay token was blocked by rule 8, shown masked, and that pull request was closed; then the action at `@v1.0.0` passed |
+| `make doctor`, on the laptop | all 12 checks pass, among them "main cannot be merged until secret-gate passes" |
+| The release | [v1.0.0](https://github.com/Bhavik-Kadian/Nexora/releases/tag/v1.0.0), the latest release |
 
 ## Where everything is
 
 - **The code, the docs and the release:** [github.com/Bhavik-Kadian/Nexora](https://github.com/Bhavik-Kadian/Nexora), release `v1.0.0`. Every page is also a PDF in `docs/pdf/`.
+- **On GitHub:** the ruleset "Protect main" (every change through a pull request whose `secret-gate` check passed, and nobody can bypass it), private vulnerability reporting for [SECURITY.md](../SECURITY.md), and the repository's description and topics.
 - **What is left for the owner to do:** [CLOSEOUT-CHECKLIST.md](../CLOSEOUT-CHECKLIST.md).
 - **What changed, stage by stage:** [CHANGELOG.md](../CHANGELOG.md).
 - **The working notes of the build:** [History](history/README.md).
