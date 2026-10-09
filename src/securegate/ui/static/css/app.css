@@ -53,6 +53,12 @@ code {
   overflow-wrap: anywhere;
 }
 
+/* A suggested line of code wraps inside its panel instead of running past it. */
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 kbd {
   padding: 0 var(--spacing-xs);
   color: var(--color-neutral-foreground-1);

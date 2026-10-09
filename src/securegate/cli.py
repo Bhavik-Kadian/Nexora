@@ -11,18 +11,20 @@ import logging
 import os
 import sys
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from datetime import UTC, datetime
 from pathlib import Path
 
 from securegate import __version__
+from securegate.agents.client import Model
 from securegate.ci_report import download_report, merge_line
 from securegate.demo.app import AUTHOR_NAME
 from securegate.demo.generator import generate
 from securegate.demo.pull_requests import cleanup, open_demo_pr, save_last_demo
 from securegate.demo.scenarios import NAMES as SCENARIOS
 from securegate.demo.token import new_demo_token
+from securegate.doctor import Check, run_checks
 from securegate.doctor import exit_code as doctor_exit_code
-from securegate.doctor import run_checks
-from securegate.errors import SecureGateError
+from securegate.errors import ConfigError, SecureGateError
 from securegate.finding import DECISIONS
 from securegate.github import Tools, real_tools
 from securegate.mask import default_state_dir, load_hmac_key
@@ -181,6 +183,47 @@ def build_parser() -> argparse.ArgumentParser:
     ci_report.add_argument(
         "--no-open", action="store_true", help="download only; do not open the dashboard"
     )
+    agents = commands.add_parser(
+        "agents",
+        help="ask the AI agents (triage, fix, incident) about a report; they advise, the policy "
+        "still decides",
+    )
+    agents.add_argument("--report", default="findings.json", help="default: %(default)s")
+    agents.add_argument(
+        "--only",
+        default="triage,fix,incident",
+        metavar="LIST",
+        help="which agents to ask, comma-separated (default: %(default)s)",
+    )
+    agents.add_argument(
+        "--repo", help="the scanned folder, to read code from (default: the report's target)"
+    )
+    agents.add_argument(
+        "--visibility",
+        choices=("public", "private", "unknown"),
+        default="unknown",
+        help="who can see the repository, for the incident plan (default: %(default)s)",
+    )
+    agents.add_argument("--comment", metavar="FILE", help="rewrite the pull request comment")
+    agents.add_argument("--summary", metavar="FILE", help="rewrite the job summary")
+    commands.add_parser(
+        "ai-setup",
+        help="set up the AI agents: the Azure endpoint, the model deployment and its key",
+    )
+    commands.add_parser(
+        "ai-check", help="check that the AI agents are set up and that their model answers"
+    )
+    agent_fix = commands.add_parser(
+        "agent-fix",
+        help="open a pull request that takes the keys out of a pull request's newest code",
+    )
+    agent_fix.add_argument(
+        "--pr", type=int, required=True, metavar="NUMBER", help="the pull request"
+    )
+    agent_fix.add_argument("--policy", default="policy.yaml", help="default: %(default)s")
+    agent_fix.add_argument(
+        "--gitleaks-config", default=".gitleaks.toml", help="default: %(default)s"
+    )
     return parser
 
 
@@ -189,9 +232,11 @@ def main(
     *,
     runner: gitleaks.Runner | None = None,
     tool_runners: Mapping[str, ToolRunner] | None = None,
+    model_factory: Callable[[], Model | None] | None = None,
 ) -> int:
     """Run one command. `runner` replaces Gitleaks and `tool_runners` the other programs
-    (by name: "trufflehog", "semgrep", "bandit", "git", "gh"); tests pass fakes."""
+    (by name: "trufflehog", "semgrep", "bandit", "git", "gh"), and `model_factory` the AI
+    model (None: not set up); tests pass fakes."""
     _tolerant_console()
     args = build_parser().parse_args(argv)
     runner = runner or gitleaks.subprocess_runner
@@ -216,9 +261,19 @@ def main(
         if args.command == "demo-cleanup":
             return _demo_cleanup(_tools(tool_runners or {}))
         if args.command == "doctor":
-            return _doctor(runner, tool_runners or {})
+            return _doctor(runner, tool_runners or {}, model_factory or _azure_model)
         if args.command == "ci-report":
             return _ci_report(args, _tools(tool_runners or {}))
+        if args.command == "agents":
+            return _agents(args, model_factory or _azure_model)
+        if args.command == "ai-setup":
+            return _ai_setup()
+        if args.command == "ai-check":
+            return _ai_check(model_factory or _azure_model)
+        if args.command == "agent-fix":
+            return _agent_fix(
+                args, runner, _tools(tool_runners or {}), model_factory or _azure_model
+            )
         return _scan(args, runner, tool_runners or {})
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -359,6 +414,7 @@ def _menu(runner: gitleaks.Runner) -> int:
         run_command=lambda argv: _run_for_menu(argv, runner),
         open_dashboard=_open_dashboard_for_menu,
         gitleaks_version=gitleaks.gitleaks_version(runner),
+        ai_ready=_ai_configured,
     )
 
 
@@ -438,13 +494,22 @@ def _listed(items: Iterable[str]) -> str:
     return f": {', '.join(shown)}" if shown else ""
 
 
-def _doctor(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> int:
+def _doctor(
+    runner: gitleaks.Runner,
+    tool_runners: Mapping[str, ToolRunner],
+    model_factory: Callable[[], Model | None],
+) -> int:
     checks = run_checks(
         Path.cwd(),
         _tools(tool_runners),
         gitleaks_version=lambda: gitleaks.gitleaks_version(runner),
         tool_runners=tool_runners,
+        ai_model=model_factory,
     )
+    return _print_checks(checks)
+
+
+def _print_checks(checks: Sequence[Check]) -> int:
     for item in checks:
         print(item.line())
     failed = sum(item.status == "FAIL" for item in checks)
@@ -453,7 +518,84 @@ def _doctor(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> 
         print(f"{failed} check failed." if failed == 1 else f"{failed} checks failed.")
     else:
         print("All checks passed.")
-    return doctor_exit_code(checks)
+    return doctor_exit_code(list(checks))
+
+
+def _agent_fix(
+    args: argparse.Namespace,
+    runner: gitleaks.Runner,
+    tools: Tools,
+    model_factory: Callable[[], Model | None],
+) -> int:
+    from securegate.agents.fix_pr import open_fix_pr
+
+    model = model_factory()
+    if model is None:
+        raise ConfigError(
+            "agent-fix needs the AI agents: set them up with securegate ai-setup (or A, then 4, "
+            "in the menu)"
+        )
+    done = open_fix_pr(
+        args.pr,
+        Path.cwd(),
+        tools,
+        model=model,
+        key=load_hmac_key(os.environ, default_state_dir()),
+        runner=runner,
+        policy_path=Path(args.policy),
+        gitleaks_config=Path(args.gitleaks_config),
+    )
+    if done.url is None:
+        print(f"No fix pull request was opened for #{args.pr}: there was no line to fix.")
+    else:
+        print(f"Opened a fix pull request: {done.url}")
+        print(f"  branch: {done.branch} (into the branch of #{args.pr})")
+        for line in done.fixed:
+            where = f"{line.file}:{line.line}"
+            print(f"  {where}  {line.masked_value}  now read from {line.env_var}")
+    for reason in done.skipped:
+        print(f"  Left alone: {reason}")
+    print(
+        f"The keys are still in the history of #{args.pr}: revoke each one at its provider, "
+        "then set the new key as the environment variable."
+    )
+    return EXIT_PASS
+
+
+def _ai_check(model_factory: Callable[[], Model | None]) -> int:
+    from securegate.doctor import ai_checks
+
+    return _print_checks(ai_checks(model_factory))
+
+
+def _ai_setup() -> int:
+    import getpass
+
+    from securegate.agents.setup import run_setup
+
+    try:
+        run_setup(
+            ask=input,
+            ask_secret=getpass.getpass,
+            say=print,
+            state_dir=default_state_dir(),
+            env=os.environ,
+        )
+    except EOFError:
+        raise ConfigError(
+            "ai-setup needs someone at the keyboard; in scripts, set SECUREGATE_AI_ENDPOINT, "
+            "SECUREGATE_AI_DEPLOYMENT and SECUREGATE_AI_KEY instead"
+        ) from None
+    print("Check the connection with: securegate ai-check (or A, then 5, in the menu).")
+    return EXIT_PASS
+
+
+def _ai_configured() -> bool:
+    """Whether the AI agents are set up here, without contacting Azure."""
+    try:
+        return _azure_model() is not None
+    except SecureGateError:
+        return False
 
 
 def _ci_report(args: argparse.Namespace, tools: Tools) -> int:
@@ -481,6 +623,57 @@ def _ci_report(args: argparse.Namespace, tools: Tools) -> int:
     from securegate.ui.server import serve
 
     return serve(done.saved, port=args.port, open_browser=True)
+
+
+def _azure_model() -> Model | None:
+    from securegate.agents.client import AzureChat
+    from securegate.agents.settings import load_settings
+
+    settings = load_settings(os.environ, default_state_dir())
+    return None if settings is None else AzureChat(settings)
+
+
+def _agents(args: argparse.Namespace, model_factory: Callable[[], Model | None]) -> int:
+    from securegate.agents.runner import ask_agents, parse_only, store_advice
+
+    only = parse_only(args.only)
+    report = Path(args.report)
+    model = model_factory()
+    advice = ask_agents(
+        report,
+        model=model,
+        key=load_hmac_key(os.environ, default_state_dir()),
+        repo=Path(args.repo) if args.repo else None,
+        only=only,
+        visibility=args.visibility,
+        now=lambda: datetime.now(UTC),
+    )
+    kept = store_advice(report, advice)
+    targets = Targets(
+        summary=Path(args.summary) if args.summary else None,
+        comment=Path(args.comment) if args.comment else None,
+    )
+    if targets.any:
+        write_outputs(report, targets, finished=True)
+    if model is None:
+        print(
+            "The AI agents are not set up, so none were asked; the report says so. Set them up "
+            "with: securegate ai-setup (or A, then 4, in the menu)."
+        )
+        return EXIT_PASS
+    print(f"AI advice from {kept.model or 'the model'}, kept in {report}:")
+    counts = {
+        "triage": f"{len(kept.triage)} notes",
+        "fix": f"{len(kept.fixes)} suggestions",
+        "incident": f"a plan in {len(kept.incident.steps)} steps" if kept.incident else "no plan",
+    }
+    for name, status in kept.agents.items():
+        detail = counts[name] if status.status == "ok" else (status.note or status.status)
+        print(f"  {name + ':':<10}{status.status}, {detail}")
+    if kept.note:
+        print(f"  {kept.note}")
+    print("The policy decided every finding; the agents only advise.")
+    return EXIT_PASS
 
 
 def _version(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> int:

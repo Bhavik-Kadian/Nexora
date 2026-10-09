@@ -52,6 +52,8 @@ Example: `/findings/dcc7b5bbfe3c` is the Stripe key from the demo's deleted scri
 
 **Report** (`/report`). The whole report on one page: the result, the scan's details, the totals, and every finding with how to fix it. It is made for printing: see below.
 
+**AI advice** (`/advice`). What the [AI agents](agents.md) said about this report, when someone asked them: the incident plan for the blocked keys, the triage of each finding (likely real, likely a false alarm, or one for a person, with why and the next step), and the suggested fixes, each a line of code that reads an environment variable instead. Each finding's page also gets an **AI triage** and an **AI fix suggestion** panel, and the overview says what the agents gave. The advice is labelled as advice: the policy decided every finding. Advice that fails SecureGate's checks is not shown; the page says so instead.
+
 ## Download the findings
 
 The buttons at the top of the Overview and Findings pages download what SecureGate found:

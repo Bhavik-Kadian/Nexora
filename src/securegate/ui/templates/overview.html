@@ -84,6 +84,18 @@
         <dd><code>{{ report.policy }}</code></dd>
         <dt>SecureGate</dt>
         <dd>{{ report.securegate_version }}</dd>
+        <dt>AI advice</dt>
+        <dd>
+          {%- if report.advice and report.advice.status == "ok" -%}
+          <a href="/advice">{{ report.advice.triage | length }} triage {{ "note" if report.advice.triage | length == 1 else "notes" }}, {{ report.advice.fixes | length }} {{ "fix" if report.advice.fixes | length == 1 else "fixes" }}{% if report.advice.incident %}, an incident plan{% endif %}</a>
+          {%- elif report.advice -%}
+          <a href="/advice">{{ "Not set up" if report.advice.status == "skipped" else "The agents did not answer" }}</a>
+          {%- elif report.advice_note -%}
+          <a href="/advice">Withheld</a>
+          {%- else -%}
+          <span class="secondary">Not asked</span>
+          {%- endif -%}
+        </dd>
       </dl>
     </section>
   </div>

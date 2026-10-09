@@ -94,6 +94,10 @@ The numbers are what really happens. We don't change the rules just to make them
 
 On GitHub itself, run the five scenes once: [Demo: the merge gate](demo-script.md). `make doctor` first says whether everything is ready.
 
+## Test the AI agents
+
+The agents are tested without Azure: a fake model plays scripted answers and records every request it was sent. `tests/test_agents_safety.py` plants values in code and proves none survives redaction, including for every finding of the demo project; `tests/test_agents.py` runs all three agents on the demo project and proves that nothing planted appears in anything that would be sent to Azure, that an instruction hidden in a code comment stays data, and that Azure being down changes nothing but the advice. `tests/test_agents_ui.py` covers the comment, the dashboard, the setup and the connection check. No test ever calls Azure: an automatic fixture makes the agents count as not set up unless a test passes its own fake model.
+
 ## Same seed, same repo
 
 `make demo` always uses seed 42, a number that fixes every random choice. The same catalog and seed always build exactly the same repo, so results can be compared over time. To try other values:

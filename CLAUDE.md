@@ -41,10 +41,16 @@ compare masked values, counts or booleans instead.
 - `make demo-clean|demo-leak|demo-deleted|demo-decoys|demo-risky` (`securegate demo-pr`): a demo PR on
   origin, built in a temp worktree from origin/main (clean tree + gh login needed; only demo/
   branches). `make demo-cleanup` closes them all; `make doctor` checks readiness; `make ci-report`
+- `securegate agents --report F`: triage/fix/incident AI agents (agents/, Azure AI Foundry, stdlib
+  HTTPS; advice in the report's "advice" section, re-checked on load; never changes decisions).
+  `ai-setup` writes .securegate/ai.json, `ai-check`/doctor test it. Tests never call Azure
+  (conftest patches cli._azure_model); the redaction leak tests must stay green.
+  `agent-fix --pr N` (menu 9 then F): fix PR into that PR's branch; SecureGate edits the literal
 - `make menu` (`securegate menu`): the interactive menu in src/securegate/menu/ (art, colour only in
   a real terminal). Each choice runs a securegate command; Enter closes its dashboard. Q = exit 0.
   2 = `make scan-demo-all` (a test compares them), then the PR comment in the terminal; 3 shows it;
-  9 = merge gate screen: demo PRs (link from reports/demo-pr.json), `ci-report --pr N --wait`, cleanup, doctor
+  9 = merge gate screen: demo PRs (link from reports/demo-pr.json), `ci-report --pr N --wait`, cleanup, doctor;
+  A = AI agents screen (ask, show, dashboard, ai-setup, ai-check); 9 then F = agent-fix
 - `Start SecureGate.cmd`: double-click launcher (setup if asked, `securegate version`, then
   `securegate menu`). ASCII, CRLF; tests/test_launcher.py checks every securegate command in it
   still parses

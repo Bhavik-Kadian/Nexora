@@ -6,7 +6,7 @@ One readable file, `policy.yaml`, decides what happens to each thing it finds: *
 It never shows a whole secret: a found key appears as `sk_l****562d`.
 It checks each commit on your laptop and each pull request on GitHub, and a read-only dashboard shows the results in your browser, where you can download them or print them.
 
-**See it work:** on Windows, double-click `Start SecureGate.cmd` in the SecureGate folder. SecureGate opens with its menu. Type 1 and press Enter to scan a demo project full of fake secrets, then press Enter again to see the results in your browser. Type 9 to see the gate on GitHub: SecureGate opens a real pull request with a fake key, and shows how the check stops it. The first time, install the tools in step 1 of [Getting started](getting-started.md).
+**See it work:** on Windows, double-click `Start SecureGate.cmd` in the SecureGate folder. SecureGate opens with its menu. Type 1 and press Enter to scan a demo project full of fake secrets, then press Enter again to see the results in your browser. Type 9 to see the gate on GitHub: SecureGate opens a real pull request with a fake key, and shows how the check stops it. Type A for the AI agents: triage, fixes and an incident plan for the findings. The first time, install the tools in step 1 of [Getting started](getting-started.md).
 
 ## Pages
 
@@ -20,6 +20,7 @@ It checks each commit on your laptop and each pull request on GitHub, and a read
 | [Presenting to judges](presenting-to-judges.md) | show SecureGate live: where it starts, where the data comes from, what to type and what to say |
 | [How it's built](how-its-built.md) | find your way around the files, or change a behavior |
 | [Testing](testing.md) | plant a new secret in the demo repo and read the scorecard |
+| [The AI agents](agents.md) | get AI advice on the findings: triage, a fixed line of code and an incident plan |
 | [Limitations](limitations.md) | know what SecureGate does not do yet, and what to do about it |
 | [Glossary](glossary.md) | look up a word |
 | [Decisions](decisions.md) | know why something is the way it is |

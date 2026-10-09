@@ -3,7 +3,8 @@
 The report is read again on every request, so a new scan shows up after a reload. Pages run
 no JavaScript, and the Content-Security-Policy header forbids scripts outright. The findings
 can be downloaded as CSV, JSON or a Markdown summary, and /report shows everything on one
-page, ready to print.
+page, ready to print. /advice shows the AI agents' advice, when the report has some that
+passed its checks.
 """
 
 from datetime import datetime
@@ -14,10 +15,11 @@ from flask.typing import ResponseReturnValue
 
 from securegate import __version__
 from securegate.finding import DECISIONS, SEVERITIES
+from securegate.outputs.markdown import VERDICT_WORDS
 from securegate.summary import render_summary
 from securegate.ui.export import download_name, findings_csv, findings_json
 from securegate.ui.fixes import how_to_fix
-from securegate.ui.report_view import FINDING_ID, ReportProblem, load_report
+from securegate.ui.report_view import FINDING_ID, FindingView, ReportProblem, load_report
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
@@ -80,8 +82,38 @@ def create_app(report_path: Path) -> Flask:
         if not places:
             message = f"There is no finding with id “{finding_id[:40]}” in this report."
             return render_template("not_found.html", message=message, active="findings"), 404
+        advice = report.advice
         return render_template(
-            "finding.html", places=places, fix=how_to_fix(places[0]), active="findings"
+            "finding.html",
+            places=places,
+            fix=how_to_fix(places[0]),
+            ai_note=advice.triage_for(finding_id) if advice else None,
+            ai_fix=advice.fix_for(finding_id) if advice else None,
+            ai_model=advice.model if advice else None,
+            verdict_words=VERDICT_WORDS,
+            active="findings",
+        )
+
+    @app.get("/advice")
+    def advice_page() -> ResponseReturnValue:
+        report = load_report(report_path)
+        if isinstance(report, ReportProblem):
+            return _problem_page(report)
+        places: dict[str, FindingView] = {}
+        for found in report.findings:
+            places.setdefault(found.id, found)
+        advice = report.advice
+        notes = [(places[n.finding], n) for n in advice.triage] if advice else []
+        fixes = [(places[f.finding], f) for f in advice.fixes] if advice else []
+        return render_template(
+            "advice.html",
+            report=report,
+            advice=advice,
+            advice_note=report.advice_note,
+            notes=notes,
+            fixes=fixes,
+            verdict_words=VERDICT_WORDS,
+            active="advice",
         )
 
     @app.get("/report")

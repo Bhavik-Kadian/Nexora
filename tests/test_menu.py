@@ -27,13 +27,22 @@ from helpers import (
     git_installed,
     leaked,
 )
+from securegate.agents.fix_pr import LAST_FIX
 from securegate.cli import build_parser, main
 from securegate.demo.generator import MARKER_FILE, DemoResult
 from securegate.demo.pull_requests import LAST_DEMO
 from securegate.demo.scenarios import NAMES as SCENARIOS
 from securegate.errors import ConfigError, SecureGateError
 from securegate.menu import art
-from securegate.menu.app import CHOICES, GATE_CHOICES, GATE_DEMOS, run_menu, terminal_lines
+from securegate.menu.app import (
+    AI_CHOICES,
+    ASK_AGENTS,
+    CHOICES,
+    GATE_CHOICES,
+    GATE_DEMOS,
+    run_menu,
+    terminal_lines,
+)
 from securegate.menu.terminal import Terminal
 from securegate.outputs.markdown import MARKER
 from securegate.policy import load_policy
@@ -57,6 +66,7 @@ class Keyboard:
 
 
 PR_URL = "https://github.com/demo-owner/demo-repo/pull/7"
+FIX_URL = "https://github.com/demo-owner/demo-repo/pull/8"
 
 
 def note_demo_pr(scenario: str, number: int = 7) -> None:
@@ -91,6 +101,9 @@ class Commands:
             (out / MARKER_FILE).touch()
         if argv[0] == "demo-pr" and code == 0:
             note_demo_pr(argv[1])
+        if argv[0] == "agent-fix" and code == 0:
+            LAST_FIX.parent.mkdir(parents=True, exist_ok=True)
+            LAST_FIX.write_text(json.dumps({"url": FIX_URL, "branch": "demo/fix-x"}), "utf-8")
         return code
 
     @property
@@ -129,6 +142,7 @@ def run(
     open_dashboard: Callable[[Path, Callable[[], object]], object] | None = None,
     gitleaks: str | None = "8.30.1",
     scanners: bool = False,
+    ai_ready: bool = False,
 ) -> MenuRun:
     """`scanners`: whether TruffleHog, Semgrep and Bandit count as installed."""
     keyboard = Keyboard(*answers)
@@ -143,6 +157,7 @@ def run(
         gitleaks_version=gitleaks,
         program_found=lambda program: scanners,
         open_url=urls.append,
+        ai_ready=lambda: ai_ready,
     )
     return MenuRun(code, keyboard, commands, dashboards, urls)
 
@@ -204,7 +219,7 @@ def test_the_status_shows_the_result_of_the_last_scan(sample_report: Path, folde
 
 def test_an_unknown_choice_says_what_to_type() -> None:
     menu = run("10", "q")
-    assert "Type a number from 1 to 9, or Q to quit, then press Enter." in menu.text
+    assert "Type a number from 1 to 9 or A, or Q to quit, then press Enter." in menu.text
     assert menu.commands.ran == []
 
 
@@ -751,7 +766,7 @@ def test_9_checks_that_everything_is_ready() -> None:
 
 def test_an_unknown_choice_on_the_merge_gate_screen_says_what_to_type() -> None:
     menu = run("9", "x", "b", "q")
-    assert "Type a number from 1 to 9, or B to go back, then press Enter." in menu.text
+    assert "Type a number from 1 to 9 or F, or B to go back, then press Enter." in menu.text
     assert menu.commands.ran == []
 
 
@@ -764,3 +779,128 @@ def test_an_error_on_the_merge_gate_screen_is_shown_and_the_menu_goes_on() -> No
     assert "securegate: error: no policy here" in menu.text
     assert "Press Enter to go back to the merge gate menu." in menu.text
     assert menu.exit_code == 0
+
+
+# --- A: the AI agents -------------------------------------------------------------------------
+
+
+def test_a_shows_the_ai_agents_screen_and_b_goes_back() -> None:
+    menu = run("a", "b", "q")
+    assert menu.exit_code == 0
+    assert menu.commands.ran == []
+    assert "The AI agents" in menu.text
+    for key, label, _ in AI_CHOICES:
+        assert re.search(rf"^\s+{key}  {label}", menu.text, re.MULTILINE)
+
+
+def test_the_first_screen_says_whether_the_ai_agents_are_ready() -> None:
+    assert "AI agents   not set up (A, then 4, sets them up)" in run("q").text
+    assert "AI agents   ready (A asks them about the last scan)" in run("q", ai_ready=True).text
+
+
+def test_asking_needs_the_agents_set_up_first() -> None:
+    menu = run("a", "1", "", "b", "q")
+    assert menu.commands.ran == []
+    assert "The AI agents are not set up yet. Choose 4 to set them up first." in menu.text
+
+
+def test_asking_needs_a_scan_first() -> None:
+    menu = run("a", "1", "", "b", "q", ai_ready=True)
+    assert menu.commands.ran == []
+    assert "There is no scan yet." in menu.text
+
+
+def test_asking_runs_the_agents_on_the_last_scan(folder: Path) -> None:
+    (folder / "findings-demo.json").write_text("{}", encoding="utf-8")
+    menu = run("a", "1", "", "b", "q", ai_ready=True)
+    assert menu.commands.ran == [["agents", "--report", "findings-demo.json"]]
+
+
+def test_asking_rewrites_the_comment_made_from_that_scan(folder: Path) -> None:
+    (folder / "findings-demo.json").write_text("{}", encoding="utf-8")
+    (folder / "reports").mkdir()
+    (folder / "reports" / "demo-comment.md").write_text("comment", encoding="utf-8")
+    menu = run("a", "1", "", "b", "q", ai_ready=True)
+    comment = str(Path("reports") / "demo-comment.md")
+    assert menu.commands.ran == [["agents", "--report", "findings-demo.json", "--comment", comment]]
+
+
+def test_setting_up_offers_to_check_the_connection() -> None:
+    menu = run("a", "4", "", "", "b", "q")
+    assert menu.commands.names == ["ai-setup", "ai-check"]
+    menu = run("a", "4", "n", "", "b", "q")
+    assert menu.commands.names == ["ai-setup"]
+
+
+def test_checking_the_connection_runs_ai_check() -> None:
+    assert run("a", "5", "", "b", "q").commands.names == ["ai-check"]
+
+
+def test_after_a_scan_the_agents_are_offered_only_when_set_up() -> None:
+    assert ASK_AGENTS not in run("1", "n", "q").text
+    menu = run("1", "", "n", "q", ai_ready=True)  # scan, ask the agents, no dashboard
+    assert menu.commands.names[-2:] == ["scan", "agents"]
+    assert menu.commands.ran[-1] == ["agents", "--report", "findings-demo.json"]
+    declined = run("1", "n", "n", "q", ai_ready=True)
+    assert declined.commands.names[-1] == "scan"
+
+
+def test_their_advice_is_shown_in_the_terminal(sample_report: Path, folder: Path) -> None:
+    data = json.loads(sample_report.read_text(encoding="utf-8"))
+    block = next(f for f in data["findings"] if f["decision"] == "block")
+    data["advice"] = {
+        "status": "ok",
+        "model": "gpt-5.4-mini",
+        "agents": {"triage": {"status": "ok", "note": None}},
+        "triage": [
+            {
+                "finding": block["id"],
+                "verdict": "likely_real",
+                "confidence": "high",
+                "why": "A live key in application code.",
+                "next_step": "Revoke it at the provider.",
+            }
+        ],
+    }
+    (folder / "findings-demo.json").write_text(json.dumps(data), encoding="utf-8")
+    text = run("a", "2", "", "b", "q").text
+    assert "AI advice from gpt-5.4-mini: the policy decided, not the AI." in text
+    assert (
+        f"{block['file']}:{block['line']} {block['masked_value']}: likely real, high confidence."
+        in text
+    )
+    assert "A live key in application code. Next: Revoke it at the provider." in text
+
+
+def test_the_ai_commands_are_real_securegate_commands(folder: Path) -> None:
+    (folder / "findings-demo.json").write_text("{}", encoding="utf-8")
+    menu = run("a", "1", "", "4", "", "", "5", "", "b", "q", ai_ready=True)
+    assert menu.commands.names == ["agents", "ai-setup", "ai-check", "ai-check"]
+    for argv in menu.commands.ran:
+        build_parser().parse_args(argv)
+
+
+# --- F: the fix agent, on the merge gate screen ---------------------------------------------------
+
+
+def test_f_needs_a_demo_pull_request_and_the_ai_agents() -> None:
+    assert "There is no demo pull request yet." in run("9", "f", "", "b", "q", ai_ready=True).text
+    note_demo_pr("leak")
+    menu = run("9", "f", "", "b", "q")
+    assert "set them up first, with A, then 4" in menu.text
+    assert menu.commands.ran == []
+
+
+def test_f_opens_a_fix_pull_request_and_offers_it_in_the_browser() -> None:
+    note_demo_pr("leak", number=12)
+    menu = run("9", "f", "", "", "b", "q", ai_ready=True)
+    assert menu.commands.ran == [["agent-fix", "--pr", "12"]]
+    assert menu.urls == [FIX_URL]
+    build_parser().parse_args(menu.commands.ran[0])
+
+
+def test_f_that_opened_nothing_offers_nothing() -> None:
+    note_demo_pr("leak")
+    menu = run("9", "f", "", "b", "q", ai_ready=True, commands=Commands({"agent-fix": 2}))
+    assert "No fix pull request was opened" in menu.text
+    assert menu.urls == []

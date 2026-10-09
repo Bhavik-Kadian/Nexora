@@ -3,7 +3,8 @@
 load_report() returns a ReportView when the file is a usable SecureGate report, or a
 ReportProblem when it is missing, broken or from a failed scan; the dashboard shows a problem
 as a friendly page with the exact command that creates a report. Every masked value is checked
-again here, so a report that somehow holds an unmasked value is refused, never displayed.
+again here, so a report that somehow holds an unmasked value is refused, never displayed. The
+AI agents' advice is checked too (agents/advice.py); advice that breaks a rule is withheld.
 """
 
 import json
@@ -14,6 +15,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from securegate.agents.advice import Advice, AdviceError, parse_advice
 from securegate.finding import DECISIONS, SEVERITIES, VALIDITIES
 
 SCHEMA_VERSION = 1
@@ -170,6 +172,10 @@ class ReportView:
     findings: tuple[FindingView, ...]  # blocks first, then warnings, then ignored
     # Every scanner and how it fared. Reports from before Layer 2 list only Gitleaks.
     scanners: tuple[ScannerView, ...] = ()
+    # The AI agents' advice (securegate agents), when the report has some that passed its checks;
+    # advice_note says why advice that was there is not shown.
+    advice: Advice | None = None
+    advice_note: str | None = None
 
     @property
     def result(self) -> str:
@@ -252,6 +258,7 @@ def _report(path: Path, data: object) -> ReportView:
     findings.sort(key=lambda f: (DECISION_ORDER[f.decision], f.file, f.line, f.rule))
     scanner = data.get("scanner") if isinstance(data.get("scanner"), dict) else {}
     exit_code = data.get("exit_code")
+    advice, advice_note = _advice(data.get("advice"), {f.id for f in findings})
     return ReportView(
         path=path,
         status=_text(data.get("status")) or "unknown",
@@ -267,7 +274,20 @@ def _report(path: Path, data: object) -> ReportView:
         securegate_version=_text(data.get("version")) or "unknown",
         findings=tuple(findings),
         scanners=_scanners(data.get("scanners"), _text(scanner.get("version"))),
+        advice=advice,
+        advice_note=advice_note,
     )
+
+
+def _advice(raw: object, finding_ids: set[str]) -> tuple[Advice | None, str | None]:
+    """The AI advice, checked. Advice that breaks a rule is withheld as a whole; the findings are
+    still shown, because the policy decided them, not the AI."""
+    if raw is None:
+        return None, None
+    try:
+        return parse_advice(raw, finding_ids), None
+    except AdviceError as err:
+        return None, f"The AI advice in this report was withheld: {err}."
 
 
 def _scanners(raw: object, gitleaks_version: str | None) -> tuple[ScannerView, ...]:
