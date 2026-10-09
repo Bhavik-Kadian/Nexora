@@ -12,6 +12,12 @@ findings*.json
 reports/
 reference/
 
+# Local databases and logs, which can hold values copied from a scan
+*.sqlite
+*.sqlite3
+*.log
+logs/
+
 # Python
 .venv/
 __pycache__/
