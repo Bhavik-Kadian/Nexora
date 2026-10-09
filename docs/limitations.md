@@ -21,7 +21,7 @@ What helps: `.github/CODEOWNERS` names who must review changes to `.github/`, `p
 
 **Semgrep and Bandit are pinned by version, not by checksum.** Gitleaks and TruffleHog are checked against their published checksums before they run. Semgrep and Bandit are installed with pip at an exact version, but the packages they depend on can change.
 
-**The runner changes on 2026-10-19.** GitHub's `ubuntu-latest` moves to Ubuntu 26 then. The workflow only uses tools it downloads and checks itself, so it should keep working; the first run after that date is worth a look.
+**The runner image is fixed, and will one day be retired.** The gate runs on `ubuntu-24.04`, the image it was tested on, rather than `ubuntu-latest`, which moves to a newer Ubuntu over time. GitHub retires old images a few years after their release. When it announces that for 24.04, change `runs-on` in `.github/workflows/secret-gate.yml` to the next image and open one pull request to see the gate pass on it.
 
 ## Demo pull requests
 

@@ -111,7 +111,7 @@ def test_reads_the_code_comments_and_uploads_sarif_and_nothing_more() -> None:
 def test_one_job_named_secret_gate_on_ubuntu_with_a_time_limit() -> None:
     assert list(SPEC["jobs"]) == ["secret-gate"]
     assert JOB.get("name", "secret-gate") == "secret-gate"
-    assert (JOB["runs-on"], JOB["timeout-minutes"]) == ("ubuntu-latest", 10)
+    assert (JOB["runs-on"], JOB["timeout-minutes"]) == ("ubuntu-24.04", 10)
 
 
 def test_actions_are_pinned_to_commits_of_their_latest_major_version() -> None:
