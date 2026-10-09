@@ -42,7 +42,9 @@ compare masked values, counts or booleans instead.
   action's tag, the policy from the caller's base branch; tests/test_action.py keeps its pins,
   install scripts and comment script equal to the workflow's. Repos: origin = Bhavik-Kadian/Nexora
   (renamed from SecureGate at the close-out; old links redirect), backup = Bhavik-Kadian/
-  Nexora-backup (the old Nexora repo: copies of early branches; leave it alone)
+  Nexora-backup (the old Nexora repo: copies of early branches; leave it alone). Release v1.0.0.
+  main has the ruleset "Protect main" (PR + secret-gate check required, empty bypass list), so
+  every change, docs too, reaches main through a pull request
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
 - `make demo-clean|demo-leak|demo-deleted|demo-decoys|demo-risky` (`securegate demo-pr`): a demo PR on
   origin, built in a temp worktree from origin/main (clean tree + gh login needed; only demo/
