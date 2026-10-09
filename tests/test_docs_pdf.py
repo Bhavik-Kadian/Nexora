@@ -3,6 +3,7 @@
 import hashlib
 import importlib.util
 import json
+import re
 
 from helpers import REPO_ROOT
 
@@ -26,6 +27,8 @@ BUILDER = load_builder()
 PAGE = """# Sample page
 
 See [Testing](testing.md), [a section](glossary.md#secret) and [GitHub](https://github.com).
+Also [the changelog](../CHANGELOG.md), [a note](history/README.md#history)
+and [the policy](../policy.yaml).
 
 | Decision | Meaning |
 |---|---|
@@ -48,7 +51,14 @@ def test_links_to_other_pages_name_the_pdf_instead() -> None:
     assert 'Testing <span class="page-ref">(testing.pdf)</span>' in body
     assert 'a section <span class="page-ref">(glossary.pdf)</span>' in body
     assert '<a href="https://github.com">GitHub</a>' in body  # outside links stay links
-    assert ".md" not in body
+    assert re.findall(r'href="([^"]*)"', body) == ["https://github.com"]
+
+
+def test_links_to_files_without_a_pdf_name_them_in_the_repository() -> None:
+    _, body, _ = BUILDER.page_parts(PAGE)
+    assert 'the changelog <span class="page-ref">(CHANGELOG.md in the repository)</span>' in body
+    assert 'a note <span class="page-ref">(docs/history/README.md in the repository)' in body
+    assert 'the policy <span class="page-ref">(policy.yaml in the repository)</span>' in body
 
 
 def test_tables_become_html_tables() -> None:

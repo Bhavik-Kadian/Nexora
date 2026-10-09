@@ -1,5 +1,7 @@
 # SecureGate v0.1: Build Plan
 
+> **Working note, kept as it was written.** The original build plan of SecureGate v0.1, with the Layer 2 section added later. Written on 2026-09-30 (Layer 2: 2026-10-04). Built. The pages in [docs/](../README.md) describe SecureGate as it is; [History](README.md) lists every note.
+
 > Approved on 2026-09-30. Environment answers: install GNU Make via winget, build `.venv` on Python 3.12, one commit per approved milestone, setuptools as the build backend.
 
 ## Context

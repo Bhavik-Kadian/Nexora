@@ -29,7 +29,6 @@ from securegate.validate import did_you_mean
 
 DECISION_ORDER = {"block": 0, "warn": 1, "ignore": 2}
 SCANNERS = ("gitleaks", "trufflehog", "semgrep", "bandit")  # the order they run and are listed
-REQUIRED = frozenset({"gitleaks", "trufflehog"})
 CODE_SCANNERS = ("semgrep", "bandit")  # they read the code at head, from a private copy
 HISTORY_MODES = ("repo", "range")  # the modes that have a Git history to scan
 LABELS = {

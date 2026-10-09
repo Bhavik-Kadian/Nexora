@@ -1,0 +1,29 @@
+# The exact version of every package that SecureGate and its development tools install, as
+# tested for v1.0.0. pyproject.toml pins the direct dependencies; this file also pins what they
+# pull in, so a fresh clone installs what was tested. `make setup` and the GitHub Action
+# (action.yml) install with `-c constraints.txt`. colorama is only needed on Windows.
+blinker==1.9.0
+cfgv==3.5.0
+click==8.4.2
+colorama==0.4.6
+distlib==0.4.3
+filelock==4.0.7
+Flask==3.1.3
+identify==2.6.20
+iniconfig==2.3.0
+itsdangerous==2.2.0
+Jinja2==3.1.6
+Markdown==3.11
+MarkupSafe==3.0.3
+nodeenv==1.11.0
+packaging==26.3
+platformdirs==4.12.2
+pluggy==1.6.0
+pre_commit==4.6.2
+Pygments==2.21.0
+pytest==9.1.1
+python-discovery==1.6.1
+PyYAML==6.0.3
+ruff==0.16.9
+virtualenv==21.14.1
+Werkzeug==3.1.9

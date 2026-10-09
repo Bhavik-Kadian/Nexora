@@ -27,6 +27,7 @@ from helpers import (
     git_installed,
     leaked,
 )
+from securegate import __version__
 from securegate.agents.fix_pr import LAST_FIX
 from securegate.cli import build_parser, main
 from securegate.demo.generator import MARKER_FILE, DemoResult
@@ -195,7 +196,7 @@ def test_the_first_screen_shows_the_art_the_status_and_every_choice() -> None:
     for line in art.render(art.banner(117, unicode=True), color=False):
         assert line in text
     assert art.TAGLINE in text
-    assert "SecureGate 0.1.0, Gitleaks 8.30.1, rules in policy.yaml" in text
+    assert f"SecureGate {__version__}, Gitleaks 8.30.1, rules in policy.yaml" in text
     assert "not built yet (1 builds it)" in text
     assert "Last scan   none yet" in text
     for key, label, _ in CHOICES:

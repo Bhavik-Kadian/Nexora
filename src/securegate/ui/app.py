@@ -43,7 +43,7 @@ def create_app(report_path: Path) -> Flask:
         return {"version": __version__, "report_path": report_path, "active": None}
 
     @app.after_request
-    def add_security_headers(response):  # type: ignore[no-untyped-def]
+    def add_security_headers(response: Response) -> Response:
         response.headers.update(SECURITY_HEADERS)
         return response
 

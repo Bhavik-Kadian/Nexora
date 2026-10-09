@@ -1,6 +1,6 @@
 # Decisions
 
-The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Add an entry whenever you make a choice that someone might question later. Words in bold are explained in the [Glossary](glossary.md).
+The choices behind SecureGate, from v0.1 to the close-out at v1.0.0: what we chose, why, and what we rejected. Add an entry whenever you make a choice that someone might question later. Words in bold are explained in the [Glossary](glossary.md).
 
 ## 1. Gitleaks finds, SecureGate decides
 - **Chose:** **Gitleaks** finds candidate secrets; our own `policy.yaml` decides what happens to them.
@@ -188,7 +188,7 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Rejected:** making PDFs on the server (a new dependency such as WeasyPrint, while the browser's Save as PDF already does it); buttons that print or download with JavaScript (the dashboard forbids scripts); a light/dark switch (it needs JavaScript, or a setting to remember).
 
 ## 43. Rules keep their number from the policy table
-- **Chose:** each rule in `policy.yaml` carries its `number` from SecureGate's 14-rule policy table, and every report names the rule that decided as "rule 8: provider-keys" (the `matched_rule` field). Numbers go up from top to bottom; gaps are allowed, because rules 2, 4, 5, 6, 11 and 12 come later. Error messages use the same numbers, such as `rule 10 ('hardcoded-passwords')`.
+- **Chose:** each rule in `policy.yaml` carries its `number` from SecureGate's 14-rule policy table, and every report names the rule that decided as "rule 8: provider-keys" (the `matched_rule` field). Numbers go up from top to bottom; gaps are allowed: rules 2, 4, 5, 6, 11 and 12 were kept for later and never built (see [Roadmap](roadmap.md)). Error messages use the same numbers, such as `rule 10 ('hardcoded-passwords')`.
 - **Why:** the table is how the team talks about the policy, so a report and a conversation should use the same name. The `reason` still starts with the rule's name, so older readers keep working.
 - **Rejected:** numbering rules by their place in the file (adding one rule would renumber all the others).
 
@@ -261,7 +261,7 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 
 ## 56. Three AI agents that advise, on Azure AI Foundry
 - **Chose:** three agents (`securegate agents`): triage, fix and incident. They advise only: their output is kept in the report's `advice` section and shown as advice, and never changes a decision or an exit code. Each one is a bounded loop: the model may call five read-only tools (the findings list, the code around a finding, a policy rule, SecureGate's checklist for a kind of key, and git facts), at most 6 times, then must answer in a strict JSON format. The model is a deployment in Azure AI Foundry, `gpt-5.4-mini` by default, called with Python's own HTTPS client.
-- **Why:** reviewers get a second opinion on each finding, a ready line of code, and a response plan, while the gate's verdict stays where it was: in the readable policy. GitHub Models, the first choice, was retired on 2026-07-30; Azure AI Foundry is Microsoft's replacement, and the same Azure account serves the live checks later. `gpt-5.4-mini` because new Azure subscriptions cannot deploy models more than 12 months old, such as gpt-4.1-mini and gpt-5-mini.
+- **Why:** reviewers get a second opinion on each finding, a ready line of code, and a response plan, while the gate's verdict stays where it was: in the readable policy. GitHub Models, the first choice, was retired on 2026-07-30; Azure AI Foundry is Microsoft's replacement, and the same Azure account was meant to host the live checks, which were never built. `gpt-5.4-mini` is only the default deployment name: any chat model deployed in Azure AI Foundry works, named by its deployment, and the agents were verified on a `gpt-5-mini` deployment.
 - **Nothing secret is sent:** each finding's value is located by its fingerprint and replaced by `<SECRET>`; key shapes, random-looking tokens, passwords in web addresses and string literals on the finding's line are removed too; a value that cannot be located means no code is sent at all. Answers are untrusted: checked against the format, cleaned of markup, links, mentions and anything secret-shaped, and checked again whenever a report is read.
 - **Rejected:** letting the agents decide (the policy must stay readable and testable); an SDK such as `openai` (a new dependency for one HTTPS call); tools that write or run commands (prompt injection could use them); GitHub Models (retired).
 
@@ -281,3 +281,23 @@ The choices behind SecureGate v0.1: what we chose, why, and what we rejected. Ad
 - **Why:** reviewers see the advice where they already look, and the check stays exactly the policy's verdict.
 - **Forks** get no secrets from GitHub, so their comment says the agents were not asked; their check is unchanged.
 - **Rejected:** running the agents before the policy (they would look like part of the decision); failing the check when Azure is down.
+
+## 60. The project closes as v1.0.0, in the repository Nexora
+- **Chose:** after Microsoft Innovate 2026, the project was finished rather than left half-done: version 1.0.0, the MIT license, and every page checked against the code. The GitHub repository SecureGate was renamed to Nexora, the team's name; the product keeps its name. The old Nexora repository, which only held copies of early branches, was renamed to Nexora-backup first.
+- **Why:** a rename keeps the history, the pull requests, the gate's runs and the Security tab's alerts in one place, and GitHub sends the old address to the new one.
+- **Rejected:** pushing into a second repository (it would split the code from its pull requests and checks); rewriting history; deleting either repository.
+
+## 61. Other repositories use the gate as a GitHub Action
+- **Chose:** `action.yml`, a composite action that runs the steps of the workflow (entry 50): `uses: Bhavik-Kadian/Nexora@v1.0.0`. SecureGate comes from the action, at the tag the caller chose. The policy comes from the caller's base branch, as in entry 34: their `policy.yaml`, or SecureGate's own when they have none. The scanners' own rules come from the action. The AI agents are only asked when the caller passes a key. It fails closed on any event but a pull request, without the full history, and when a policy file it was told to use is not merged yet.
+- **Why:** any repository gets the same gate, with the same guarantees, from one short workflow file.
+- **Not used by SecureGate itself:** its own gate keeps installing SecureGate from the base branch (entry 34). Running the action from the pull request's own copy (`uses: ./`) would let a pull request change the gate that judges it. Tests keep the action's versions, checksums, action pins and scripts equal to the workflow's.
+- **Rejected:** copying the whole workflow into each repository (every copy would need the same fixes by hand); a Docker action (slower, and harder to pin).
+
+## 62. Exact versions, and a fixed runner
+- **Chose:** every package at the version it was tested with: the direct dependencies and the build backend in `pyproject.toml`, everything they pull in in `constraints.txt` (used by `make setup` and the action), and the laptop gate's two packages. The merge gate runs on `ubuntu-24.04` instead of `ubuntu-latest`.
+- **Why:** the project is no longer maintained, so nobody would notice when a new release breaks a fresh clone. A new ruff release, for one, adds lint rules, and `make check` would fail. Pinned, `make setup && make check` keeps working as long as those versions can be downloaded.
+- **Rejected:** version ranges such as `>=6.0`; a lock-file tool (a new dependency).
+
+## 63. Working notes stay, in docs/history
+- **Chose:** the build plan, the approved plan of each stage (the live-checks plan that was never built among them) and the judging-day script moved to `docs/history/`, unchanged but for a note on top. `docs/roadmap.md` lists what was never built.
+- **Why:** they explain why the code is the way it is. Deleting them would lose that, and the next person would have to guess.

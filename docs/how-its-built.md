@@ -11,8 +11,11 @@ policy.yaml                         the rules that decide block / warn / ignore
 rules/securegate-risky.yml          SecureGate's own Semgrep rules: risky handling of secrets
 .pre-commit-config.yaml             the laptop gate (installed with make hooks)
 .github/workflows/secret-gate.yml   the merge gate: the check on every pull request
+action.yml                          the same merge gate as a GitHub Action, for any repository
 .github/CODEOWNERS                  who reviews changes to the gate and its rules
 Makefile                            short commands: make setup, make test, make demo, ...
+pyproject.toml                      the package: its name, its command and its pinned packages
+constraints.txt                     the exact version of every package it installs, as tested
 Start SecureGate.cmd                double-click: open SecureGate's menu
 src/securegate/                     the program
 tools/                              helpers for the gates and the docs
@@ -42,11 +45,12 @@ A **module** is one Python file with one job. When you run a scan, they work in 
 | `finding.py` | The finding record. It can only hold a masked value. |
 | `report.py` | Prints the table, the "why and fix" lines for blocked findings, and writes `findings.json`. |
 | `outputs/` | The reports besides `findings.json`: the pull request comment and the job summary (one template, `outputs/templates/report.md.j2`; `securegate summary` prints it), the checklists to rotate a blocked key (`outputs/rotation.py`) and SARIF for GitHub's Security tab (`outputs/sarif.py`). All are made from `findings.json` read back through the dashboard's check that every value is masked. |
-| `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `generator.py`, `scorecard.py`. And the demo pull requests: `scenarios.py` (the five scenes, their files in `pr_templates/` and what the gate should say) and `pull_requests.py` (`securegate demo-pr`, which builds one in a temporary worktree from origin/main and opens it with `gh`, and `demo-cleanup`). |
+| `demo/` | Builds the demo repo: `catalog.yaml` (what to plant), `app.py` (the fake DemoPay app's files and its commit history), `fakes.py` (fake secrets and decoys, built at runtime), `generator.py`, `scorecard.py`, and `token.py` (`securegate demo-token`). And the demo pull requests: `scenarios.py` (the five scenes, their files in `pr_templates/` and what the gate should say) and `pull_requests.py` (`securegate demo-pr`, which builds one in a temporary worktree from origin/main and opens it with `gh`, and `demo-cleanup`). |
+| `summary.py` | `securegate summary`: prints a report's Markdown summary, the same report as the pull request comment. |
 | `github.py` | Runs `git` and `gh` for the demo pull requests, `doctor` and `ci-report`, and finds the GitHub repository behind `origin`. |
 | `doctor.py` | `securegate doctor`: checks the scanners, the policy, the workflow, `gh` and GitHub's ruleset, and prints PASS, FAIL or SKIP. |
 | `ci_report.py` | `securegate ci-report`: finds a `secret-gate` run (the newest, a given one, or the one for a pull request's newest commit, waiting if asked), downloads its `findings.json` and checks it before the dashboard opens it. |
-| `ui/` | The read-only dashboard: `app.py` (the pages and downloads), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `export.py` (the CSV and JSON downloads), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/` (a dark theme, light when printed). |
+| `ui/` | The read-only dashboard: `app.py` (the pages and downloads), `report_view.py` (reads and checks `findings.json`), `fixes.py` ("How to fix"), `export.py` (the CSV and JSON downloads), `sample.py` (`securegate sample-report`), `server.py` (127.0.0.1 only, on a port it never shares), `templates/` and `static/css/` (a dark theme, light when printed). |
 | `menu/` | The menu that `Start SecureGate.cmd` and `make menu` open: `app.py` (the screen and the choices; each choice runs a `securegate` command and shows it first, choice 3 shows the pull request comment in the terminal, and choice 9 is the merge gate screen: the five demo pull requests, their results, the gate's reports, clean-up and `doctor`), `art.py` (the padlock and the big letters) and `terminal.py` (colours, only in a real terminal). |
 | `agents/` | The AI agents (`securegate agents`): `redact.py` (takes every secret out of what is sent), `client.py` and `settings.py` (Azure AI Foundry, over Python's own HTTPS), `tools.py` (the five read-only tools), `loop.py` (one agent's bounded run), `triage.py`, `fix.py` and `incident.py` (each agent's instructions and checks), `sanitize.py` and `advice.py` (what comes back, checked), `runner.py` (asks them and keeps the advice in the report), `setup.py` (`securegate ai-setup`) and `fix_pr.py` (`securegate agent-fix`: a fix pull request, the edits made by SecureGate itself). |
 | `errors.py`, `validate.py`, `programs.py` | Helpers: error types, checks for hand-edited files, finding programs safely. |
@@ -112,6 +116,8 @@ The file also has a summary at the top: status (pass, fail or error), exit code,
 | change the columns of the CSV download, or the JSON download | `src/securegate/ui/export.py` |
 | change the "How to fix" advice | `src/securegate/ui/fixes.py` |
 | change what the check on pull requests does | `.github/workflows/secret-gate.yml` (see [The two gates](merge-gate.md)) |
+| change the GitHub Action that other repositories use | `action.yml` (see [Protect any repository](install.md)); `tests/test_action.py` keeps it in step with the workflow |
+| use another version of a package | `pyproject.toml` and `constraints.txt`, then `make setup` and `make check` |
 | change what a demo pull request contains, or what the gate should say about it | `src/securegate/demo/pr_templates/` and `src/securegate/demo/scenarios.py` (`tests/test_demo_kit.py` checks each scene against the policy) |
 | change what `securegate doctor` checks | `src/securegate/doctor.py` |
 | change who reviews changes to the gate | `.github/CODEOWNERS` |

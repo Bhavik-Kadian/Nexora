@@ -1,6 +1,6 @@
 # Demo day: show SecureGate in 10 minutes
 
-This is the whole demo on one page. Everything happens in **one window, SecureGate's menu**, and in your web browser: you never type a command. Each step says which key to press, what the judges see, and one sentence to say (put it in your own words).
+This is the whole demo on one page, as shown to the judges of Microsoft Innovate 2026; it works the same for any audience. Everything happens in **one window, SecureGate's menu**, and in your web browser: you never type a command. Each step says which key to press, what the judges see, and one sentence to say (put it in your own words).
 
 ## The show at a glance
 
@@ -38,7 +38,7 @@ flowchart TD
 2. **Check the first screen.** It should say `all four ready` (Scanners), `ready` (Demo) and `ready` (AI agents). If the demo project is not built yet, press **7**, then **y**, to build it.
 3. **Check GitHub:** press **9**, then **9**. Every line should say **PASS**. If `required check` says FAIL, GitHub does not lock the merge button yet: do "The one-time setting" in [The two gates](merge-gate.md) once (about 2 minutes, in the browser). Then press Enter, then **B**.
 4. **Check the AI:** press **A**, then **5**. It should say `PASS  AI connection: the model answered`. Press Enter, then **B**.
-5. **Open the browser**, signed in to GitHub, at `github.com/Bhavik-Kadian/SecureGate`.
+5. **Open the browser**, signed in to GitHub, at `github.com/Bhavik-Kadian/Nexora`.
 6. **Make a backup:** press **9**, then **2**, press Enter to open the pull request in the browser, and type **n** for the rest. Keep that tab open: if the internet is slow during the demo, you can show this pull request, already red. Press Enter, then **B**.
 7. Turn on **Do not disturb** in Windows. The menu is back on its first screen: you are ready.
 
@@ -137,4 +137,4 @@ In the menu: **9**, then **8**, then **y**: SecureGate closes the demo pull requ
 - **Can a developer get around it?** On the laptop, yes, on purpose. On GitHub, no: the check runs for every pull request, with the rules from the main branch, so a pull request cannot loosen the rules that judge it.
 - **Does deleting the key fix it?** No: the key stays in the Git history. The fix is to cancel the key at the provider and make a new one.
 
-More detail, every command and more answers: [Presenting to judges](presenting-to-judges.md) and [Demo: the merge gate](demo-script.md).
+Every command, and what to do when something goes wrong: [Getting started](getting-started.md#every-command). The merge gate's five scenes: [Demo: the merge gate](demo-script.md). The longer script used on judging day, with every command typed by hand, is kept in [History](history/presenting-to-judges.md).

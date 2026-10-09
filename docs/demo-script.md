@@ -28,7 +28,7 @@ This repository is public. **Only ever use demo values here, never a real key, a
    PASS  policy: policy.yaml loads (8 rules)
    PASS  workflow: .github/workflows/secret-gate.yml has the job secret-gate
    PASS  gh: logged in
-   PASS  origin: Bhavik-Kadian/SecureGate
+   PASS  origin: Bhavik-Kadian/Nexora
    PASS  workflow on GitHub: .github/workflows/secret-gate.yml is on main
    PASS  required check: main cannot be merged until secret-gate passes
    ```
