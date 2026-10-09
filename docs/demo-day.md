@@ -1,6 +1,6 @@
 # Demo day: show SecureGate in 10 minutes
 
-This is the whole demo on one page. Everything happens in **one window, SecureGate's menu**, and in your web browser: you never type a command. Each step says which key to press, what the judges see, and one sentence to say (put it in your own words).
+This is the whole demo on one page, as shown to the judges of Microsoft Innovate 2026; it works the same for any audience. Everything happens in **one window, SecureGate's menu**, and in your web browser: you never type a command. Each step says which key to press, what the judges see, and one sentence to say (put it in your own words).
 
 ## The show at a glance
 

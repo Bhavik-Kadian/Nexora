@@ -82,6 +82,10 @@ Deleting the line is not enough: the key stays in Git history.
 
 The same report appears on the check's page (the **job summary**), the findings go to the repository's **Security** tab, and `findings.json` is kept as a download of the run. Everything shows masked values only.
 
+## Step 5: Advice (optional)
+
+When the AI agents are set up, SecureGate asks them about the findings after the policy has decided, on the laptop or in the merge gate. The **triage** agent says whether each finding is likely a real secret, and why. The **fix** agent suggests a line that reads the key from an environment variable instead, for a key that is still in the code. The **incident** agent plans the response to the blocked keys, starting with revoking Riya's key at Stripe. They see masked values, and code with every secret taken out, and they never change a decision: their advice appears, labelled as advice, in the comment, the summary and the dashboard. See [The AI agents](agents.md).
+
 ## Why deleting the line is not enough
 
 Git keeps every commit. Anyone with a copy of the project can open the old commit and read the key. Deleting the line only hides it from the newest version.
@@ -109,4 +113,5 @@ flowchart LR
     D --> G["Report: masked table, findings.json, PR comment, Security tab"]
     E --> G
     F --> G
+    G -.-> H["Optional: AI agents add advice, never a decision"]
 ```

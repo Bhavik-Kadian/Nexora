@@ -36,6 +36,8 @@
 
 **Git history**: every commit ever made in a repository. Deleting a line in a new commit does not remove it from the older ones.
 
+**GitHub Action**: a reusable set of workflow steps that other repositories run with one `uses:` line. SecureGate's merge gate is one, so any repository can use it. Example: `uses: Bhavik-Kadian/Nexora@v1.0.0`.
+
 **Gitleaks**: a free, open-source scanner that finds key-shaped text in files and in Git history. SecureGate uses it to find candidates, then decides itself.
 
 **Hardcoded**: written directly into the code, instead of being loaded from a safe place when the program runs. Example: a Stripe key typed into a Python file.
