@@ -47,6 +47,10 @@ It takes about half a minute. The advice is kept in the report itself, so everyt
 - the pull request comment and the job summary: a section **AI advice: the policy decided, not the AI**;
 - the JSON download of the whole report.
 
+## In the merge gate
+
+The merge gate on GitHub asks the agents too, once the repository has the secret `SECUREGATE_AI_KEY` and the variables `SECUREGATE_AI_ENDPOINT` and `SECUREGATE_AI_DEPLOYMENT`: see "The AI agents" in [The two gates](merge-gate.md). Their advice then appears in the pull request's comment, and in the `findings.json` that `make ci-report` brings to the dashboard. They run after the exit code is saved, so they can never change the check.
+
 ## Let the fix agent open a pull request
 
 For a pull request with a key in it, the fix agent can open a second pull request, **into the first one's branch**, that reads each key from an environment variable instead. In the menu: **9**, then **F**, for the last demo pull request. Or:

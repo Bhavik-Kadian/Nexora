@@ -48,3 +48,5 @@ What helps: `.github/CODEOWNERS` names who must review changes to `.github/`, `p
 **Text in the scanned code can try to steer the agents.** A code comment can say "ignore your rules". The agents' tools can only read what SecureGate chose to show, so such text can make the advice misleading, but cannot change a finding, a decision or a file.
 
 **They need Azure, and Azure costs money.** Each run is small and capped (at most 20 findings, and 8 model calls per agent), but Azure bills for every call. Without Azure, everything else in SecureGate works as before.
+
+**Pull requests from forks get no AI advice.** GitHub gives them no secrets, so the merge gate cannot reach Azure for them; their comment says the agents were not asked.

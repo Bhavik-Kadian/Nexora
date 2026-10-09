@@ -35,7 +35,8 @@ compare masked values, counts or booleans instead.
 - `make hooks`: laptop gate (pre-commit). Merge gate: .github/workflows/secret-gate.yml (all four
   scanners on every PR to main; summary, one PR comment, SARIF, findings.json artifact). It installs
   SecureGate and its rules from the BASE branch, so a gate change ships in two PRs: code, then the
-  workflow that uses it. Repos: origin = Bhavik-Kadian/SecureGate (work), nexora = Bhavik-Kadian/
+  workflow that uses it. After the scan, a continue-on-error step runs `securegate agents` (secret
+  SECUREGATE_AI_KEY, vars SECUREGATE_AI_ENDPOINT/DEPLOYMENT); it never decides. Repos: origin = Bhavik-Kadian/SecureGate (work), nexora = Bhavik-Kadian/
   Nexora (stores every branch; main goes there as build-main; never overwrite its main)
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
 - `make demo-clean|demo-leak|demo-deleted|demo-decoys|demo-risky` (`securegate demo-pr`): a demo PR on

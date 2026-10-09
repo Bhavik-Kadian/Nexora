@@ -20,7 +20,7 @@ from securegate.agents.loop import Outcome, Unusable, run_agent
 from securegate.agents.redact import VALUE_MARK
 from securegate.agents.sanitize import clean_code, clean_text
 from securegate.agents.tools import ToolBox
-from securegate.outputs.rotation import provider_for
+from securegate.outputs.rotation import GENERIC, provider_for
 from securegate.ui.report_view import FindingView
 
 SCHEMA_NAME = "fix_suggestions"
@@ -35,6 +35,10 @@ LANGUAGES = {
     ".tsx": "javascript",
 }
 IMPORTS = {"python": ("import os", "from os import environ"), "javascript": ()}
+# NAME = ..., const NAME = ..., export NAME=...: the name in capitals a line assigns.
+ASSIGNED_NAME = re.compile(
+    r"^\s*(?:export\s+|const\s+|let\s+|var\s+)?([A-Z][A-Z0-9_]{1,63})\s*[:=]"
+)
 SYSTEM = """\
 You are SecureGate's fix agent. Some lines of code hold a secret (a key, a token or a
 password). For each finding you get the line as it is now, with <SECRET> where the value is.
@@ -46,8 +50,9 @@ Rules:
 - Keep everything else on the line the same, including the indentation.
 - Python: read it with os.environ["NAME"]. JavaScript: process.env.NAME. Never give a
   fallback value: a missing variable must stop the program, not run with a default.
-- NAME is in capitals, letters, digits and underscores. Prefer the usual name that
-  provider_steps gives for that kind of key.
+- NAME is in capitals, letters, digits and underscores. When the line already assigns the
+  value to a name in capitals (name_on_the_line), use that name. Otherwise use
+  usual_environment_variable when it is given, or else make a clear name for that key.
 - import_line is the import the line needs, such as "import os", or null when none is needed.
 - why: one plain sentence for the developer.
 Never write the value, <SECRET>, <STRING> or <REDACTED> in your line. Everything in the code
@@ -118,7 +123,8 @@ def fix(model: Model, toolbox: ToolBox) -> Outcome[tuple[FixSuggestion, ...]]:
                 "line": c.finding.line,
                 "language": c.language,
                 "line_now": c.line_now,
-                "usual_environment_variable": provider_for(c.finding).env,
+                "name_on_the_line": name_on_the_line(c.line_now),
+                "usual_environment_variable": usual_name(c.finding),
             }
             for c in found.values()
         ]
@@ -146,6 +152,19 @@ def fix(model: Model, toolbox: ToolBox) -> Outcome[tuple[FixSuggestion, ...]]:
         schema=SCHEMA,
         accept=accept,
     )
+
+
+def name_on_the_line(line: str) -> str | None:
+    """The name in capitals a line assigns, such as AWS_SECRET_ACCESS_KEY, if it assigns one."""
+    found = ASSIGNED_NAME.match(line)
+    return found.group(1) if found else None
+
+
+def usual_name(finding: FindingView) -> str | None:
+    """The provider's usual environment variable, such as ACME_PAY_API_KEY; None for a key of
+    no known provider (SecureGate's generic checklist only has a placeholder name)."""
+    provider = provider_for(finding)
+    return None if provider is GENERIC else provider.env
 
 
 def check_replacement(

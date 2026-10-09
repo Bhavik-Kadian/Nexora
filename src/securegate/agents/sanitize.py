@@ -13,8 +13,24 @@ from collections.abc import Sequence
 from securegate.agents.redact import REDACTED, STRING, VALUE_MARK, looks_secret, redact_text
 
 HIDDEN = "****"
-ELLIPSIS = "…"
+ELLIPSIS = "..."
 MAX_PASSES = 5
+# Where the agent echoes SecureGate's placeholders, readers see words, not something that looks
+# like an HTML tag (and would be removed as one).
+PLACEHOLDER_WORDS = {VALUE_MARK: "[secret]", STRING: "[text]", REDACTED: "[hidden]"}
+# Typographic punctuation becomes plain ASCII, which every terminal can show.
+PLAIN = str.maketrans(
+    {
+        chr(0x2018): "'",
+        chr(0x2019): "'",
+        chr(0x201C): '"',
+        chr(0x201D): '"',
+        chr(0x2013): "-",
+        chr(0x2014): "-",
+        chr(0x2026): "...",
+        chr(0x00A0): " ",
+    }
+)
 _CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\u200b-\u200f\u202a-\u202e\u2066-\u2069]")
 _TAG = re.compile(r"<[^<>]{0,200}>")
 _MARKDOWN_LINK = re.compile(r"\[([^\]]{0,200})\]\([^)]{0,500}\)")
@@ -26,7 +42,9 @@ _CODE_LINE = re.compile(r"[ -~\t]*")  # printable ASCII and tabs only
 
 def clean_text(value: str, limit: int, patterns: Sequence[re.Pattern[str]] = ()) -> str:
     """One line of plain text, safe to show anywhere, at most `limit` characters long."""
-    text = _CONTROL.sub(" ", value)
+    text = _CONTROL.sub(" ", value).translate(PLAIN)
+    for placeholder, word in PLACEHOLDER_WORDS.items():
+        text = text.replace(placeholder, word)
     for _ in range(MAX_PASSES):  # removing a tag or a link can join what was around it into one
         before = text
         text = _MARKDOWN_LINK.sub(r"\1", text)

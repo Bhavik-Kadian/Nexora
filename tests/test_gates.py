@@ -259,3 +259,24 @@ def test_actionlint_finds_no_problem() -> None:
         check=False,
     )
     assert (done.returncode, done.stdout) == (0, "")
+
+
+def test_the_ai_agents_only_advise_after_a_finished_scan() -> None:
+    agents = step("Ask the AI agents (advice only)")
+    names = [s["name"] for s in JOB["steps"]]
+    position = names.index("Ask the AI agents (advice only)")
+    assert names.index(SCAN) < position  # after the exit code is saved
+    for later in (
+        "Write the job summary",
+        "Upload findings.json",
+        "Post or update the pull request comment",
+    ):
+        assert position < names.index(later)  # so the summary, artifact and comment have the advice
+    assert "steps.scan.outputs.exit_code == '0'" in agents["if"]
+    assert "steps.scan.outputs.exit_code == '1'" in agents["if"]
+    assert agents["continue-on-error"] is True  # an agent can never fail the check
+    assert agents["timeout-minutes"] <= 5
+    assert agents["env"]["SECUREGATE_AI_KEY"] == "${{ secrets.SECUREGATE_AI_KEY }}"
+    assert agents["env"]["SECUREGATE_AI_ENDPOINT"] == "${{ vars.SECUREGATE_AI_ENDPOINT }}"
+    assert 'securegate agents --report "$out/findings.json"' in agents["run"]
+    assert '--comment "$out/comment.md" --summary "$out/summary.md"' in agents["run"]

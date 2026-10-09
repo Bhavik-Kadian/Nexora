@@ -444,7 +444,7 @@ def test_fix_candidates_are_lines_of_code_whose_value_was_taken_out(
 def _fixes(messages: list) -> ModelReply:
     fixes = []
     for item in given(messages):
-        name = item["usual_environment_variable"]
+        name = item["name_on_the_line"] or item["usual_environment_variable"] or "KEY"
         read = f'os.environ["{name}"]' if item["language"] == "python" else f"process.env.{name}"
         fixes.append(
             {
@@ -762,3 +762,19 @@ def test_a_failed_scan_cannot_be_advised_on(run_cli, tmp_path: Path) -> None:
     result = run_cli("agents", "--report", str(path), model_factory=lambda: None)
     assert result.exit_code == 2
     assert "The last scan failed" in result.err
+
+
+@pytest.mark.parametrize(
+    ("line", "name"),
+    [
+        ('AWS_SECRET_ACCESS_KEY = "<SECRET>"', "AWS_SECRET_ACCESS_KEY"),
+        ('export const ACME_PAY_API_KEY = "<SECRET>";', None),
+        ('const ACME_PAY_API_KEY = "<SECRET>";', "ACME_PAY_API_KEY"),
+        ('    API_TOKEN: "<SECRET>"', "API_TOKEN"),
+        ('client = Client("<SECRET>")', None),
+    ],
+)
+def test_the_fix_agent_is_told_the_name_already_on_the_line(line: str, name: str | None) -> None:
+    from securegate.agents.fix import name_on_the_line
+
+    assert name_on_the_line(line) == name
