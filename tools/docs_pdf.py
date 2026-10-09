@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import html
 import json
+import posixpath
 import re
 import shutil
 import subprocess
@@ -41,9 +42,13 @@ BROWSERS = (
     "chromium-browser",
 )
 
-# Links to other pages: [Testing](testing.md) becomes "Testing (testing.pdf)". A clickable
-# link would turn into an absolute file:// address on this computer, broken everywhere else.
-PAGE_LINK = re.compile(r'<a href="(?![a-z]+:|#)([^"#]+)\.md(?:#[^"]*)?">(.*?)</a>', re.DOTALL)
+# Links to other pages: [Testing](testing.md) becomes "Testing (testing.pdf)". A link to a file
+# with no PDF copy, such as ../CHANGELOG.md or ../policy.yaml, names the file in the repository
+# instead. A clickable link would turn into an absolute file:// address on this computer,
+# broken everywhere else.
+LOCAL_LINK = re.compile(
+    r'<a href="(?![a-z][a-z0-9+.-]*:|#)([^"#]*)(?:#[^"]*)?">(.*?)</a>', re.DOTALL
+)
 MERMAID_BLOCK = re.compile(r'<pre><code class="language-mermaid">(.*?)</code></pre>', re.DOTALL)
 SVG = re.compile(r"<svg\b.*?</svg>", re.DOTALL)
 
@@ -55,14 +60,21 @@ def source_hash(page: Path) -> str:
 def page_parts(text: str) -> tuple[str, str, list[str]]:
     """The page's title, its HTML body, and the source of each Mermaid diagram in it."""
     body = markdown.markdown(text, extensions=["tables", "fenced_code", "sane_lists"])
-    body = PAGE_LINK.sub(
-        lambda m: f'{m.group(2)} <span class="page-ref">({m.group(1)}.pdf)</span>', body
-    )
+    body = LOCAL_LINK.sub(local_link, body)
     diagrams = [html.unescape(block) for block in MERMAID_BLOCK.findall(body)]
     title = next(
         (line[2:].strip() for line in text.splitlines() if line.startswith("# ")), "SecureGate"
     )
     return title, body, diagrams
+
+
+def local_link(match: re.Match[str]) -> str:
+    """A link to a page or file of this repository, as text that still makes sense on paper."""
+    target, text = match.group(1), match.group(2)
+    if target.endswith(".md") and "/" not in target:  # a page next to this one: it has a PDF
+        return f'{text} <span class="page-ref">({target.removesuffix(".md")}.pdf)</span>'
+    where = posixpath.normpath(posixpath.join("docs", target))
+    return f'{text} <span class="page-ref">({where} in the repository)</span>'
 
 
 def with_diagrams(body: str, svgs: list[str]) -> str:
