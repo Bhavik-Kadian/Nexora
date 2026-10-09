@@ -39,8 +39,9 @@ compare masked values, counts or booleans instead.
   SECUREGATE_AI_KEY, vars SECUREGATE_AI_ENDPOINT/DEPLOYMENT); it never decides. action.yml is
   the same gate as a composite action for other repos (docs/install.md): SecureGate from the
   action's tag, the policy from the caller's base branch; tests/test_action.py keeps its pins,
-  install scripts and comment script equal to the workflow's. Repos: origin = Bhavik-Kadian/SecureGate (work), nexora = Bhavik-Kadian/
-  Nexora (stores every branch; main goes there as build-main; never overwrite its main)
+  install scripts and comment script equal to the workflow's. Repos: origin = Bhavik-Kadian/Nexora
+  (renamed from SecureGate at the close-out; old links redirect), backup = Bhavik-Kadian/
+  Nexora-backup (the old Nexora repo: copies of early branches; leave it alone)
 - `securegate demo-token`: fake ACME token for demo pull requests only; never merge one
 - `make demo-clean|demo-leak|demo-deleted|demo-decoys|demo-risky` (`securegate demo-pr`): a demo PR on
   origin, built in a temp worktree from origin/main (clean tree + gh login needed; only demo/

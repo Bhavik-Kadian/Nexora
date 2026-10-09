@@ -9,9 +9,11 @@ SecureGate needs four free tools. **winget**, the app installer built into Windo
 ```powershell
 winget install --id Git.Git -e
 winget install --id Python.Python.3.12 -e
-winget install --id Gitleaks.Gitleaks -e
+winget install --id Gitleaks.Gitleaks -e --version 8.30.1
 winget install --id ezwinports.make -e
 ```
+
+Gitleaks is installed at 8.30.1 on purpose: SecureGate is tested with that version, and the merge gate on GitHub uses it too.
 
 - **Git** keeps the history of a project.
 - **Python** runs SecureGate.
@@ -33,11 +35,11 @@ Each command prints a version number. If one says "not recognized", close PowerS
 
 ```powershell
 cd $HOME\Documents
-git clone <repository-address> SecureGate
+git clone https://github.com/Bhavik-Kadian/Nexora.git SecureGate
 cd SecureGate
 ```
 
-Replace `<repository-address>` with the address your team gave you. `cd` means "change directory": it moves you into a folder.
+SecureGate lives in the GitHub repository **Nexora**, named after the team that built it; the first line copies it into a folder called `SecureGate`. `cd` means "change directory": it moves you into a folder.
 
 **The quick way on Windows:** open the SecureGate folder in File Explorer and double-click `Start SecureGate.cmd`. The first time, it asks to set SecureGate up (step 3). Then SecureGate opens in its own window, with a menu. Type a number and press Enter:
 

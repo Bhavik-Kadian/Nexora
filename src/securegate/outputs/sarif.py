@@ -11,7 +11,7 @@ from securegate import __version__
 from securegate.ui.report_view import FindingView, ReportView
 
 SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
-INFORMATION_URI = "https://github.com/Bhavik-Kadian/SecureGate"
+INFORMATION_URI = "https://github.com/Bhavik-Kadian/Nexora"
 LEVELS = {"block": "error", "warn": "warning"}
 # GitHub sorts code scanning alerts by this number: 9+ critical, 7+ high, 4+ medium, else low.
 SECURITY_SEVERITY = {"critical": 9.5, "high": 8.0, "medium": 5.0, "low": 3.0, "info": 0.0}

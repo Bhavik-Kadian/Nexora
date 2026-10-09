@@ -38,7 +38,7 @@ flowchart TD
 2. **Check the first screen.** It should say `all four ready` (Scanners), `ready` (Demo) and `ready` (AI agents). If the demo project is not built yet, press **7**, then **y**, to build it.
 3. **Check GitHub:** press **9**, then **9**. Every line should say **PASS**. If `required check` says FAIL, GitHub does not lock the merge button yet: do "The one-time setting" in [The two gates](merge-gate.md) once (about 2 minutes, in the browser). Then press Enter, then **B**.
 4. **Check the AI:** press **A**, then **5**. It should say `PASS  AI connection: the model answered`. Press Enter, then **B**.
-5. **Open the browser**, signed in to GitHub, at `github.com/Bhavik-Kadian/SecureGate`.
+5. **Open the browser**, signed in to GitHub, at `github.com/Bhavik-Kadian/Nexora`.
 6. **Make a backup:** press **9**, then **2**, press Enter to open the pull request in the browser, and type **n** for the rest. Keep that tab open: if the internet is slow during the demo, you can show this pull request, already red. Press Enter, then **B**.
 7. Turn on **Do not disturb** in Windows. The menu is back on its first screen: you are ready.
 
