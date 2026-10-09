@@ -155,7 +155,66 @@ xcode-select --install        # provides make
 
 # Ubuntu or Debian Linux:
 sudo apt install git make python3.12 python3.12-venv
-# Gitleaks for Linux: https://github.com/gitleaks/gitleaks/releases
+# Gitleaks for Linux: https://github.com/gitleaks/gitleaks/releases/tag/v8.30.1
 ```
 
+Homebrew installs the newest Gitleaks. SecureGate is tested with 8.30.1, which you can download from the same releases page; `make doctor` says when the version differs.
+
 In steps 5 and 6, use `.venv/bin/securegate` instead of `.venv\Scripts\securegate`.
+
+## Every command
+
+Each `make` command is a short name for a longer one, written in the file `Makefile`. `make` prints the real command before running it. If `make` ever stops working, type the command from the middle column instead: it does exactly the same.
+
+| You type | Same as typing | What it does |
+|---|---|---|
+| `make setup` | `py -3.12 -m venv .venv`, then `pip install -e ".[dev]" -c constraints.txt` with `.venv`'s Python | installs SecureGate and its tools into `.venv`, at the tested versions (once; needs the internet) |
+| `make demo` | `.venv\Scripts\securegate demo-repo --out ..\securegate-demo --seed 42 --force` | builds the demo project |
+| `make scan-demo` | `.venv\Scripts\securegate scan ..\securegate-demo --mode repo --out findings-demo.json` | scans the demo project's whole history with Gitleaks |
+| `make scan-demo-all` | the same, plus `--scanners all --no-verification` and `--comment`, `--summary` and `--sarif` files in `reports\` | scans it with all four scanners and writes the pull request comment, the job summary and SARIF; live checks stay off, so the fake keys are never sent anywhere |
+| `make ui` | `.venv\Scripts\securegate ui --report findings-demo.json --open` | opens the dashboard on the demo scan |
+| `make menu` | `.venv\Scripts\securegate menu` | opens the menu, like double-clicking `Start SecureGate.cmd` |
+| `make sample-report` | `.venv\Scripts\securegate sample-report --out sample_findings.json` | writes the sample report for designers |
+| `make hooks` | `.venv\Scripts\python.exe -m pre_commit install --install-hooks` | turns on the laptop gate (once; needs the internet) |
+| `make scanners` | `.venv\Scripts\python.exe tools\install_scanners.py` | installs TruffleHog, Semgrep and Bandit into `.venv`, at the versions the merge gate uses |
+| `make test` | `.venv\Scripts\python.exe -m pytest` | runs the automatic tests and prints the scorecards |
+| `make lint` | `ruff check .`, then `ruff format --check .`, with `.venv`'s Python | checks the code style |
+| `make check` | `make lint`, then `make test` | the full check before every commit |
+| `make docs-pdf` | `.venv\Scripts\python.exe tools\docs_pdf.py` | rebuilds the PDFs in `docs\pdf` (needs Edge or Chrome) |
+| `make demo-clean`, `make demo-leak`, `make demo-deleted`, `make demo-decoys`, `make demo-risky` | `.venv\Scripts\securegate demo-pr clean`, and `leak`, `deleted-later`, `decoys` or `risky` | opens a demo pull request on GitHub: see [Demo: the merge gate](demo-script.md) |
+| `make demo-cleanup` | `.venv\Scripts\securegate demo-cleanup` | closes every demo pull request and deletes their branches |
+| `make doctor` | `.venv\Scripts\securegate doctor` | checks the scanners, the rules, `gh` and GitHub's settings: PASS, FAIL or SKIP |
+| `make ci-report` | `.venv\Scripts\securegate ci-report` | downloads the merge gate's newest report from GitHub and opens it in the dashboard |
+
+A few commands have no `make` shortcut:
+
+| Command | What it does |
+|---|---|
+| `securegate version` | prints the versions of SecureGate and its four scanners |
+| `securegate summary --report findings-demo.json` | prints a report's Markdown summary, with masked values only |
+| `securegate demo-token` | prints a new fake ACME Pay token, for trying the gates |
+| `securegate agents --report findings-demo.json` | asks the AI agents about a report (see [The AI agents](agents.md)) |
+| `securegate ai-setup`, `securegate ai-check` | sets up the AI agents, and checks that their model answers |
+| `securegate agent-fix --pr 12` | opens a pull request that takes the keys out of pull request 12's newest code |
+
+`securegate COMMAND --help` lists every option of a command. Start each with `.venv\Scripts\` (`.venv/bin/` on macOS and Linux), as in the table above.
+
+## If something goes wrong
+
+| What you see | What to do |
+|---|---|
+| `make : The term 'make' is not recognized` | Close PowerShell and open it again. If it still happens, type the command from the middle column of "Every command" instead. |
+| `make scan-demo` ends with `Error 1` | Nothing: that is expected. Secrets were found and blocked. |
+| `Error 2` and `TruffleHog was not found` | Run `make scanners` once (it needs the internet), or scan with Gitleaks alone (`make scan-demo`). |
+| The `Scanners:` line says Semgrep `could not load p/secrets` | There is no internet, so Semgrep ran SecureGate's own rules only. The scan still counts. |
+| `Error 2`, or a line starting with `securegate: error:` | SecureGate could not do its job, and the line says why. Often Gitleaks is not found: run `.venv\Scripts\securegate version`. If it says `gitleaks not found`, open PowerShell again, or repeat step 1. |
+| `.venv\Scripts\securegate` is not recognized | You are in the wrong folder (`Test-Path Makefile` prints `True` in the right one), or SecureGate is not set up yet: run `make setup`. |
+| `cannot start the dashboard on port 5000` | A dashboard is already open, maybe in another window, or another program uses that port. Use the open one, or add `--port 5050`. |
+| The browser did not open | Type `http://127.0.0.1:5000` into its address bar. |
+| The dashboard says there is no report | Run a scan, for example `make scan-demo`, then reload the page. |
+| PowerShell seems stuck after `make ui` | It is not stuck: it is running the dashboard. Ctrl+C stops it. |
+| `gh is not logged in`, or gh is not recognized | Run `gh auth login`, or install gh with `winget install --id GitHub.cli -e` and open PowerShell again. |
+| `the working tree has uncommitted changes` | A demo pull request never starts while the folder has changes, so that none of them can end up on GitHub. Commit them, or put them aside with `git stash`. |
+| The window of `Start SecureGate.cmd` says `SecureGate stopped` | The lines above it say what went wrong, often one of the problems in this table. Fix it, then double-click the file again. |
+| The window asks `Terminate batch job (Y/N)?` | Someone pressed Ctrl+C. Press Y, then double-click the file again. Q in the menu closes SecureGate normally. |
+| A scan fails, and you need to show the dashboard anyway | `.venv\Scripts\securegate ui --report sample_findings.json --open` shows the sample report kept in the project. |

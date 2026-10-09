@@ -1,7 +1,8 @@
 # SecureGate: notes for Claude
 
 SecureGate v0.1 is a secret-scanning gate for Git repos: Gitleaks finds secrets, `policy.yaml`
-decides (block / warn / ignore), and reports show secrets masked. The plan is in PLAN.md.
+decides (block / warn / ignore), and reports show secrets masked. The original plan and the working
+notes are in docs/history/; docs/roadmap.md lists what was never built.
 
 ## Non-negotiable rules
 1. Never print, log, store or write a full secret anywhere: not in findings, reports, logs,

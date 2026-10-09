@@ -57,7 +57,7 @@ goto :wait
 echo.
 echo SecureGate stopped. The lines above say what went wrong.
 if defined HINT echo %HINT%
-echo More help: "If something goes wrong" in docs\presenting-to-judges.md
+echo More help: "If something goes wrong" in docs\getting-started.md
 
 :wait
 echo.

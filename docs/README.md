@@ -21,12 +21,13 @@ It checks each commit on your laptop and each pull request on GitHub, and a read
 | [The two gates](merge-gate.md) | stop secrets before a commit (laptop) and before a merge (GitHub), and turn the GitHub check on |
 | [Protect any repository](install.md) | give another GitHub repository the same two gates: the GitHub Action and the pre-commit hook |
 | [Demo: the merge gate](demo-script.md) | show the GitHub check at work in five scenes, from the menu or with one command each |
-| [Presenting to judges](presenting-to-judges.md) | show SecureGate live: where it starts, where the data comes from, what to type and what to say |
 | [How it's built](how-its-built.md) | find your way around the files, or change a behavior |
 | [Testing](testing.md) | plant a new secret in the demo repo and read the scorecard |
 | [The AI agents](agents.md) | get AI advice on the findings: triage, a fixed line of code and an incident plan |
 | [Limitations](limitations.md) | know what SecureGate does not do yet, and what to do about it |
 | [Glossary](glossary.md) | look up a word |
 | [Decisions](decisions.md) | know why something is the way it is |
+| [Roadmap](roadmap.md) | see what was planned but never built |
+| [History](history/README.md) | read the working notes and plans from the build, kept as they were written |
 
 Every page is also a PDF, for printing or sharing: see the `docs/pdf/` folder. The pages above are the originals. After changing one, run `make docs-pdf` to update its PDF.

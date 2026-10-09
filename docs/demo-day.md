@@ -137,4 +137,4 @@ In the menu: **9**, then **8**, then **y**: SecureGate closes the demo pull requ
 - **Can a developer get around it?** On the laptop, yes, on purpose. On GitHub, no: the check runs for every pull request, with the rules from the main branch, so a pull request cannot loosen the rules that judge it.
 - **Does deleting the key fix it?** No: the key stays in the Git history. The fix is to cancel the key at the provider and make a new one.
 
-More detail, every command and more answers: [Presenting to judges](presenting-to-judges.md) and [Demo: the merge gate](demo-script.md).
+Every command, and what to do when something goes wrong: [Getting started](getting-started.md#every-command). The merge gate's five scenes: [Demo: the merge gate](demo-script.md). The longer script used on judging day, with every command typed by hand, is kept in [History](history/presenting-to-judges.md).
