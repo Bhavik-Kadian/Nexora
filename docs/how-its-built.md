@@ -11,6 +11,7 @@ policy.yaml                         the rules that decide block / warn / ignore
 rules/securegate-risky.yml          SecureGate's own Semgrep rules: risky handling of secrets
 .pre-commit-config.yaml             the laptop gate (installed with make hooks)
 .github/workflows/secret-gate.yml   the merge gate: the check on every pull request
+action.yml                          the same merge gate as a GitHub Action, for any repository
 .github/CODEOWNERS                  who reviews changes to the gate and its rules
 Makefile                            short commands: make setup, make test, make demo, ...
 pyproject.toml                      the package: its name, its command and its pinned packages

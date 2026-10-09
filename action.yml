@@ -1,0 +1,311 @@
+# SecureGate's merge gate as a GitHub Action, for any repository: every commit of a pull request
+# is scanned for secrets by Gitleaks, TruffleHog, Semgrep and Bandit, one policy file decides, and
+# every report shows masked values only. How to use it: docs/install.md.
+#
+#   jobs:
+#     secret-gate:
+#       runs-on: ubuntu-24.04
+#       steps:
+#         - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+#           with:
+#             fetch-depth: 0              # every commit of the pull request
+#             persist-credentials: false
+#         - uses: Bhavik-Kadian/Nexora@v1.0.0
+#
+# It runs the steps of SecureGate's own gate (.github/workflows/secret-gate.yml), with two
+# differences: SecureGate comes from this action, at the version the caller chose, and the policy
+# comes from the caller's base branch (their policy.yaml, or SecureGate's own when they have
+# none). The scanner versions and checksums are the workflow's: a test keeps them the same.
+name: SecureGate secret gate
+description: Stop leaked keys before they are merged. Four scanners, one policy file, masked values only.
+author: Team Nexora
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  policy:
+    description: >-
+      Your policy file, read from the pull request's base branch so that a pull request cannot
+      loosen the rules that judge it. Empty (the default): policy.yaml when the base branch has
+      one, otherwise SecureGate's own. A file named here must be on the base branch.
+    required: false
+    default: ""
+  comment:
+    description: Post one comment on the pull request and update it after every push ("true" or "false").
+    required: false
+    default: "true"
+  sarif:
+    description: Send the findings to the repository's Security tab as SARIF ("true" or "false").
+    required: false
+    default: "true"
+  github-token:
+    description: The token that posts the comment. The job's own token is all it needs.
+    required: false
+    default: ${{ github.token }}
+  ai-endpoint:
+    description: >-
+      Optional: the Azure AI Foundry endpoint for SecureGate's AI agents, which add advice to the
+      comment and never decide. Without ai-key, the agents are not asked.
+    required: false
+    default: ""
+  ai-deployment:
+    description: "Optional: the model deployment's name in Azure AI Foundry (default: gpt-5.4-mini)."
+    required: false
+    default: ""
+  ai-key:
+    description: "Optional: the Azure AI Foundry key. Pass it from a secret, never as plain text."
+    required: false
+    default: ""
+
+outputs:
+  exit-code:
+    description: SecureGate's exit code. 0 = pass, 1 = a secret is blocked, 2 = the scan could not finish.
+    value: ${{ steps.result.outputs.exit-code }}
+  findings:
+    description: The path of findings.json, which holds masked values only.
+    value: ${{ steps.result.outputs.findings }}
+
+runs:
+  using: composite
+  steps:
+    # Only a pull request has a range of commits to judge, and only a full checkout has its base
+    # commit. Anything else stops here, and the last step fails the check (exit code 2).
+    - name: Check the event and the checkout
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+      run: |
+        set -euo pipefail
+        if [ "$EVENT_NAME" != "pull_request" ]; then
+          echo "::error::SecureGate judges pull requests: run it on pull_request, not $EVENT_NAME."
+          exit 2
+        fi
+        if ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+          echo "::error::The base commit is missing: use actions/checkout with fetch-depth: 0."
+          exit 2
+        fi
+
+    # Install Python 3.12, the version SecureGate is built and tested with.
+    - name: Set up Python 3.12
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: "3.12"
+
+    # Install SecureGate from this action's own files, at the version the caller chose, with the
+    # exact package versions it was tested with. The pull request's code is never installed.
+    - name: Install SecureGate from the action
+      shell: bash
+      run: pip install "$GITHUB_ACTION_PATH" -c "$GITHUB_ACTION_PATH/constraints.txt"
+
+    # Download Gitleaks from its official GitHub release and check the download before using
+    # it: first the release's list of checksums against the fingerprint below, then the program
+    # archive against its line in that list. Any mismatch stops the scan.
+    - name: Install Gitleaks (checksum verified)
+      shell: bash
+      env:
+        GITLEAKS_VERSION: "8.30.1"
+        GITLEAKS_CHECKSUMS_SHA256: "061476c21adaf5441516f96f185c1a4706a83cd6329b9b38762271b3d4a52fae"
+      run: |
+        set -euo pipefail
+        cd "$RUNNER_TEMP"
+        release="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+        archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+        checksums="gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+        curl --fail --silent --show-error --location --remote-name "$release/$archive"
+        curl --fail --silent --show-error --location --remote-name "$release/$checksums"
+        echo "$GITLEAKS_CHECKSUMS_SHA256  $checksums" | sha256sum --check --strict
+        awk -v name="$archive" '$2 == name' "$checksums" | sha256sum --check --strict
+        mkdir -p "$RUNNER_TEMP/bin"
+        tar -xzf "$archive" -C "$RUNNER_TEMP/bin" gitleaks
+        echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+        "$RUNNER_TEMP/bin/gitleaks" version
+
+    # Download TruffleHog the same way: its official release, checked against the pinned
+    # fingerprint of the release's checksums, then against its own line. No install script is
+    # piped into a shell.
+    - name: Install TruffleHog (checksum verified)
+      shell: bash
+      env:
+        TRUFFLEHOG_VERSION: "3.97.9"
+        TRUFFLEHOG_CHECKSUMS_SHA256: "d8a2807fd8019f3db10308365bdfc818c07ae86f4e7e22839e41f77f9b27f93f"
+      run: |
+        set -euo pipefail
+        cd "$RUNNER_TEMP"
+        release="https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}"
+        archive="trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz"
+        checksums="trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt"
+        curl --fail --silent --show-error --location --remote-name "$release/$archive"
+        curl --fail --silent --show-error --location --remote-name "$release/$checksums"
+        echo "$TRUFFLEHOG_CHECKSUMS_SHA256  $checksums" | sha256sum --check --strict
+        awk -v name="$archive" '$2 == name' "$checksums" | sha256sum --check --strict
+        mkdir -p "$RUNNER_TEMP/bin"
+        tar -xzf "$archive" -C "$RUNNER_TEMP/bin" trufflehog
+        "$RUNNER_TEMP/bin/trufflehog" --version
+
+    # Install the pinned Semgrep and Bandit, the two code checkers.
+    - name: Install Semgrep and Bandit (pinned)
+      shell: bash
+      env:
+        SEMGREP_VERSION: "1.179.0"
+        BANDIT_VERSION: "1.9.4"
+      run: |
+        pip install "semgrep==${SEMGREP_VERSION}" "bandit==${BANDIT_VERSION}"
+        semgrep --version
+        bandit --version
+
+    # Take the policy from the base branch, so that a pull request that edits it is judged by
+    # the rules it had before: the file named in the policy input (it must be there), or
+    # policy.yaml when the base branch has one, or else SecureGate's own policy.yaml.
+    - name: Take the policy from the base branch
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        POLICY: ${{ inputs.policy }}
+      run: |
+        set -euo pipefail
+        out="$RUNNER_TEMP/securegate"
+        mkdir -p "$out"
+        wanted="${POLICY:-policy.yaml}"
+        if git cat-file -e "$BASE_SHA:$wanted" 2>/dev/null; then
+          git show "$BASE_SHA:$wanted" > "$out/policy.yaml"
+          echo "Policy: $wanted, as it is on the base branch."
+        elif [ -n "$POLICY" ]; then
+          echo "::error::The policy file $POLICY is not on the base branch. Merge it first."
+          exit 2
+        else
+          cp "$GITHUB_ACTION_PATH/policy.yaml" "$out/policy.yaml"
+          echo "Policy: SecureGate's own policy.yaml (the base branch has no policy.yaml)."
+        fi
+
+    # Scan every commit from the base of the pull request to its head with all four scanners,
+    # and write the findings, the summary, the comment and SARIF. The exit code is saved instead
+    # of failing right away, so the steps below still run; the last step uses it.
+    - name: Scan every commit in this pull request
+      id: scan
+      shell: bash
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      run: |
+        set +e
+        out="$RUNNER_TEMP/securegate"
+        gate="$GITHUB_ACTION_PATH"
+        securegate scan . --mode range --range "$BASE_SHA..$HEAD_SHA" --scanners all \
+          --policy "$out/policy.yaml" \
+          --gitleaks-config "$gate/.gitleaks.toml" \
+          --trufflehog-config "$gate/.trufflehog.yaml" \
+          --semgrep-rules "$gate/rules/securegate-risky.yml" \
+          --out "$out/findings.json" \
+          --sarif "$out/securegate.sarif" \
+          --summary "$out/summary.md" \
+          --comment "$out/comment.md"
+        echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+    # When the caller gave an Azure key, ask SecureGate's AI agents about the findings: triage, a
+    # fixed line and an incident plan, added to the summary and the comment as advice. They never
+    # decide: the exit code was saved above, and this step may fail without failing the check.
+    # They never see a whole secret (SecureGate takes every value out first).
+    - name: Ask the AI agents (advice only)
+      if: always() && inputs.ai-key != '' && (steps.scan.outputs.exit_code == '0' || steps.scan.outputs.exit_code == '1')
+      continue-on-error: true
+      shell: bash
+      env:
+        SECUREGATE_AI_ENDPOINT: ${{ inputs.ai-endpoint }}
+        SECUREGATE_AI_DEPLOYMENT: ${{ inputs.ai-deployment }}
+        SECUREGATE_AI_KEY: ${{ inputs.ai-key }}
+        VISIBILITY: ${{ github.event.repository.visibility }}
+      run: |
+        out="$RUNNER_TEMP/securegate"
+        case "$VISIBILITY" in
+          public|private) visibility="$VISIBILITY" ;;
+          *) visibility=unknown ;;
+        esac
+        securegate agents --report "$out/findings.json" --visibility "$visibility" \
+          --comment "$out/comment.md" --summary "$out/summary.md"
+
+    # Always show the summary on the check's page, even when the scan fails. It holds masked
+    # values only. This step never changes the result.
+    - name: Write the job summary
+      if: always()
+      continue-on-error: true
+      shell: bash
+      run: |
+        summary="$RUNNER_TEMP/securegate/summary.md"
+        if [ -s "$summary" ]; then
+          cat "$summary" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "### SecureGate: ERROR" >> "$GITHUB_STEP_SUMMARY"
+          echo "SecureGate did not write a summary. See the log of the step that failed." >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    # Upload SARIF to the Security tab when the scan finished (exit code 0 or 1). After an error
+    # there is no SARIF on purpose: an empty one would mark earlier alerts as fixed. A pull
+    # request from a fork has no permission to upload, so it is skipped there.
+    - name: Upload SARIF to the Security tab
+      if: always() && inputs.sarif == 'true' && (steps.scan.outputs.exit_code == '0' || steps.scan.outputs.exit_code == '1') && github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+      with:
+        sarif_file: ${{ runner.temp }}/securegate/securegate.sarif
+        category: secret-gate
+
+    # Keep findings.json (masked values only) as a download of this run.
+    - name: Upload findings.json
+      if: always()
+      continue-on-error: true
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: securegate-findings
+        path: ${{ runner.temp }}/securegate/findings.json
+        if-no-files-found: warn
+        retention-days: 14
+
+    # Post SecureGate's comment on the pull request, or update the one it posted before (it is
+    # recognised by its hidden marker). Pull requests from forks get a read-only token, so they
+    # are skipped.
+    - name: Post or update the pull request comment
+      if: always() && inputs.comment == 'true' && github.event.pull_request.head.repo.full_name == github.repository
+      continue-on-error: true
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+        comment="$RUNNER_TEMP/securegate/comment.md"
+        if [ ! -s "$comment" ]; then
+          echo "SecureGate wrote no comment to post."
+          exit 0
+        fi
+        marker='<!-- securegate:pr-comment -->'
+        ids="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+          --jq ".[] | select(.user.login == \"github-actions[bot]\") | select(.body | startswith(\"$marker\")) | .id")"
+        existing="${ids%%$'\n'*}"
+        if [ -n "$existing" ]; then
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$existing" -F "body=@$comment" > /dev/null
+          echo "Updated SecureGate's comment."
+        else
+          gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -F "body=@$comment" > /dev/null
+          echo "Posted SecureGate's comment."
+        fi
+
+    # Last: pass or fail with SecureGate's exit code. If the scan never ran, the code is missing
+    # and the check fails, because the gate never passes without looking.
+    - name: Pass or fail with SecureGate's exit code
+      id: result
+      if: always()
+      shell: bash
+      env:
+        SCAN_EXIT: ${{ steps.scan.outputs.exit_code }}
+      run: |
+        code="${SCAN_EXIT:-2}"
+        case "$code" in
+          0|1|2) ;;
+          *) code=2 ;;
+        esac
+        echo "exit-code=$code" >> "$GITHUB_OUTPUT"
+        echo "findings=$RUNNER_TEMP/securegate/findings.json" >> "$GITHUB_OUTPUT"
+        echo "SecureGate exit code: $code (0 = pass, 1 = blocked, 2 = could not scan)"
+        exit "$code"

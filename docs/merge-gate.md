@@ -1,6 +1,6 @@
 # The two gates
 
-SecureGate can stop a secret in two places: on your laptop, before a commit is saved, and on GitHub, before a pull request is merged. A **pull request** is a request to add a set of commits to the main version of the project; others can review it before it is merged.
+SecureGate can stop a secret in two places: on your laptop, before a commit is saved, and on GitHub, before a pull request is merged. A **pull request** is a request to add a set of commits to the main version of the project; others can review it before it is merged. This page is about SecureGate's own repository; to give another repository the same two gates, see [Protect any repository](install.md).
 
 ## The laptop gate
 
