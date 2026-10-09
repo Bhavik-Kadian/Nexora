@@ -5,6 +5,7 @@ nothing is built or scanned. The exception is the leak test: it builds the demo 
 scans it through the real pipeline, with a fake Gitleaks.
 """
 
+import json
 import re
 import shlex
 import shutil
@@ -28,9 +29,11 @@ from helpers import (
 )
 from securegate.cli import build_parser, main
 from securegate.demo.generator import MARKER_FILE, DemoResult
+from securegate.demo.pull_requests import LAST_DEMO
+from securegate.demo.scenarios import NAMES as SCENARIOS
 from securegate.errors import ConfigError, SecureGateError
 from securegate.menu import art
-from securegate.menu.app import CHOICES, run_menu, terminal_lines
+from securegate.menu.app import CHOICES, GATE_CHOICES, GATE_DEMOS, run_menu, terminal_lines
 from securegate.menu.terminal import Terminal
 from securegate.outputs.markdown import MARKER
 from securegate.policy import load_policy
@@ -53,10 +56,28 @@ class Keyboard:
         self.shown.append(text)
 
 
+PR_URL = "https://github.com/demo-owner/demo-repo/pull/7"
+
+
+def note_demo_pr(scenario: str, number: int = 7) -> None:
+    """Leave the note that a successful `securegate demo-pr` leaves."""
+    LAST_DEMO.parent.mkdir(parents=True, exist_ok=True)
+    note = {
+        "number": number,
+        "url": PR_URL.replace("/7", f"/{number}"),
+        "branch": f"demo/{scenario}-20261006-093015",
+        "scenario": scenario,
+        "title": "a payment key in the code",
+        "expected": "red. Rule 8 (provider-keys) blocks the token.",
+    }
+    LAST_DEMO.write_text(json.dumps(note), encoding="utf-8")
+
+
 @dataclass
 class Commands:
     """Stands in for the securegate commands: records each one, then exits with the chosen code.
-    A successful demo-repo leaves the marker file, like the real one."""
+    A successful demo-repo leaves the marker file, and a successful demo-pr its note, like the
+    real ones."""
 
     exit_codes: dict[str, int] = field(default_factory=dict)
     ran: list[list[str]] = field(default_factory=list)
@@ -68,6 +89,8 @@ class Commands:
             out = Path(argv[argv.index("--out") + 1])
             out.mkdir(parents=True, exist_ok=True)
             (out / MARKER_FILE).touch()
+        if argv[0] == "demo-pr" and code == 0:
+            note_demo_pr(argv[1])
         return code
 
     @property
@@ -93,6 +116,7 @@ class MenuRun:
     keyboard: Keyboard
     commands: Commands
     dashboards: Dashboards
+    urls: list[str]  # the pages the menu opened in the browser
 
     @property
     def text(self) -> str:
@@ -110,6 +134,7 @@ def run(
     keyboard = Keyboard(*answers)
     commands = commands or Commands()
     dashboards = Dashboards()
+    urls: list[str] = []
     terminal = Terminal(ask=keyboard.ask, say=keyboard.say, columns=lambda: 120)
     code = run_menu(
         terminal,
@@ -117,8 +142,9 @@ def run(
         open_dashboard=open_dashboard or dashboards,
         gitleaks_version=gitleaks,
         program_found=lambda program: scanners,
+        open_url=urls.append,
     )
-    return MenuRun(code, keyboard, commands, dashboards)
+    return MenuRun(code, keyboard, commands, dashboards, urls)
 
 
 @pytest.fixture(autouse=True)
@@ -177,8 +203,8 @@ def test_the_status_shows_the_result_of_the_last_scan(sample_report: Path, folde
 
 
 def test_an_unknown_choice_says_what_to_type() -> None:
-    menu = run("9", "q")
-    assert "Type a number from 1 to 8, or Q to quit, then press Enter." in menu.text
+    menu = run("10", "q")
+    assert "Type a number from 1 to 9, or Q to quit, then press Enter." in menu.text
     assert menu.commands.ran == []
 
 
@@ -340,10 +366,20 @@ def test_every_command_the_menu_runs_is_a_real_securegate_command(tmp_path: Path
     project = a_project(tmp_path)
     menu = run(
         "1", "n", "2", "n", "n", "4", str(project), "", "", "", "n",
-        "7", "y", "", "8", "", "q",
+        "7", "y", "", "8", "",
+        "9", "1", "n", "n", "", "6", "n", "", "7", "n", "", "8", "y", "", "9", "", "b",
+        "q",
         scanners=True,
     )  # fmt: skip
-    assert sorted(set(menu.commands.names)) == ["demo-repo", "scan", "version"]
+    assert sorted(set(menu.commands.names)) == [
+        "ci-report",
+        "demo-cleanup",
+        "demo-pr",
+        "demo-repo",
+        "doctor",
+        "scan",
+        "version",
+    ]
     for argv in menu.commands.ran:
         try:
             build_parser().parse_args(argv)
@@ -595,3 +631,136 @@ def test_ctrl_c_at_the_menu_stops_it_with_exit_code_2(
 def test_the_menu_stops_when_its_input_ends_even_in_the_middle_of_a_choice() -> None:
     with pytest.raises(SecureGateError, match="input ended"):
         run("4")  # asks for a folder, but no answer comes
+
+
+# --- 9: the merge gate on GitHub --------------------------------------------------------------
+
+CI_REPORT_ARGS = ["--wait", "--no-open", "--out", "findings-ci.json"]
+
+
+def test_9_shows_the_merge_gate_screen_and_b_goes_back() -> None:
+    menu = run("9", "b", "q")
+    assert menu.exit_code == 0
+    assert menu.commands.ran == []
+    assert "The merge gate on GitHub" in menu.text
+    assert "Last demo   none yet" in menu.text
+    for key, _, label, expected in GATE_DEMOS:
+        assert re.search(rf"^\s+{key}  {label}\s+expected: {expected}$", menu.text, re.MULTILINE)
+    for key, label, _ in GATE_CHOICES:
+        assert re.search(rf"^\s+{key}  {label}", menu.text, re.MULTILINE)
+
+
+def test_the_demo_choices_are_the_five_scenarios_of_demo_pr() -> None:
+    assert [scenario for _, scenario, _, _ in GATE_DEMOS] == list(SCENARIOS)
+
+
+def test_a_demo_pull_request_opens_in_the_browser_and_its_result_in_the_dashboard() -> None:
+    # 9, 2: the leak; Enter: open it in the browser; Enter: wait for the result; Enter: open
+    # the dashboard; Enter: close it; B: back; Q: quit.
+    menu = run("9", "2", "", "", "", "", "b", "q")
+    assert menu.commands.ran == [["demo-pr", "leak"], ["ci-report", "--pr", "7", *CI_REPORT_ARGS]]
+    assert menu.urls == [PR_URL]
+    assert menu.dashboards.opened == [Path("findings-ci.json")]
+    assert "> securegate demo-pr leak" in menu.text
+    assert menu.exit_code == 0
+
+
+def test_the_screen_shows_the_last_demo_pull_request() -> None:
+    note_demo_pr("leak", number=12)
+    text = run("9", "b", "q").text
+    assert f"Last demo   #12, a payment key in the code: {PR_URL.replace('/7', '/12')}" in text
+
+
+def test_the_browser_and_the_wait_are_offered_not_forced() -> None:
+    menu = run("9", "1", "n", "n", "", "b", "q")
+    assert menu.commands.ran == [["demo-pr", "clean"]]
+    assert menu.urls == []
+    assert "Choose 6 later to see its result." in menu.text
+
+
+def test_a_demo_pull_request_that_failed_offers_nothing() -> None:
+    menu = run("9", "2", "", "b", "q", commands=Commands({"demo-pr": 2}))
+    assert menu.commands.names == ["demo-pr"]
+    assert "No pull request was opened: the lines above say why." in menu.text
+    assert "Open it in your browser?" not in menu.text
+    assert menu.urls == []
+
+
+def test_a_link_that_is_not_a_github_pull_request_is_never_opened() -> None:
+    class Elsewhere(Commands):
+        def __call__(self, argv: Sequence[str]) -> int:
+            code = super().__call__(argv)
+            note = json.loads(LAST_DEMO.read_text(encoding="utf-8"))
+            note["url"] = "https://example.com/demo-owner/demo-repo/pull/7"
+            LAST_DEMO.write_text(json.dumps(note), encoding="utf-8")
+            return code
+
+    menu = run("9", "2", "", "b", "q", commands=Elsewhere())
+    assert menu.urls == []
+    assert "Open it in your browser?" not in menu.text
+
+
+def test_6_needs_a_demo_pull_request_first() -> None:
+    menu = run("9", "6", "", "b", "q")
+    assert menu.commands.ran == []
+    assert "There is no demo pull request yet. Choose 1 to 5 to open one first." in menu.text
+
+
+def test_6_waits_for_the_result_of_the_last_demo_pull_request() -> None:
+    note_demo_pr("leak", number=12)
+    menu = run("9", "6", "n", "", "b", "q")
+    assert menu.commands.ran == [["ci-report", "--pr", "12", *CI_REPORT_ARGS]]
+    assert "Pull request #12, a payment key in the code. Expected: red." in menu.text
+    assert menu.dashboards.opened == []
+
+
+def test_7_opens_the_newest_gate_report_in_the_dashboard() -> None:
+    menu = run("9", "7", "", "", "b", "q")
+    assert menu.commands.ran == [["ci-report", "--no-open", "--out", "findings-ci.json"]]
+    assert menu.dashboards.opened == [Path("findings-ci.json")]
+
+
+def test_after_a_gate_report_choice_5_opens_that_report(folder: Path) -> None:
+    menu = run("9", "7", "n", "", "b", "5", "", "q")  # then 5 on the main menu
+    assert menu.dashboards.opened == []  # the report was never downloaded in this test
+    assert "There is no scan report yet (findings-ci.json)." in menu.text
+
+
+def test_a_report_that_could_not_be_downloaded_never_opens_the_dashboard() -> None:
+    menu = run("9", "7", "", "b", "q", commands=Commands({"ci-report": 2}))
+    assert "No report was downloaded: the lines above say why." in menu.text
+    assert menu.dashboards.opened == []
+
+
+@pytest.mark.parametrize("answer", ["", "n", "no"])
+def test_8_asks_before_closing_every_demo_pull_request(answer: str) -> None:
+    menu = run("9", "8", answer, "b", "q")
+    assert menu.commands.ran == []
+
+
+def test_8_closes_every_demo_pull_request_when_asked() -> None:
+    menu = run("9", "8", "y", "", "b", "q")
+    assert menu.commands.ran == [["demo-cleanup"]]
+
+
+def test_9_checks_that_everything_is_ready() -> None:
+    menu = run("9", "9", "", "b", "q", commands=Commands({"doctor": 1}))
+    assert menu.commands.ran == [["doctor"]]
+    assert "Each FAIL line says what to fix." in menu.text
+
+
+def test_an_unknown_choice_on_the_merge_gate_screen_says_what_to_type() -> None:
+    menu = run("9", "x", "b", "q")
+    assert "Type a number from 1 to 9, or B to go back, then press Enter." in menu.text
+    assert menu.commands.ran == []
+
+
+def test_an_error_on_the_merge_gate_screen_is_shown_and_the_menu_goes_on() -> None:
+    class Broken(Commands):
+        def __call__(self, argv: Sequence[str]) -> int:
+            raise ConfigError("no policy here")
+
+    menu = run("9", "9", "", "b", "q", commands=Broken())
+    assert "securegate: error: no policy here" in menu.text
+    assert "Press Enter to go back to the merge gate menu." in menu.text
+    assert menu.exit_code == 0

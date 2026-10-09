@@ -18,6 +18,16 @@
 #                   gate pins (TruffleHog's download is checked against its release checksums)
 #   make docs-pdf   rebuild docs/pdf/*.pdf from docs/*.md (needs Edge or Chrome)
 #
+# Showing the merge gate on GitHub (needs gh, logged in, and a clean working tree):
+#   make demo-clean     open a demo pull request with a harmless change: green
+#   make demo-leak      ... with a fake ACME Pay token in the code: red, rule 8
+#   make demo-deleted   ... the token added, then deleted in a second commit: still red
+#   make demo-decoys    ... placeholders and test data: green, each one explained
+#   make demo-risky     ... a logged token and a hardcoded password: green, with warnings
+#   make demo-cleanup   close every demo pull request and delete every demo/ branch
+#   make doctor         check the scanners, the policy, gh and the GitHub settings
+#   make ci-report      download the newest merge gate report and open the dashboard
+#
 # Works from PowerShell, cmd and Git Bash on Windows, and from macOS/Linux shells.
 # Use another interpreter with:  make setup PYTHON=python3
 
@@ -31,7 +41,7 @@ endif
 
 DEMO_DIR := ../securegate-demo
 
-.PHONY: setup test lint check demo scan-demo scan-demo-all ui menu sample-report hooks scanners docs-pdf
+.PHONY: setup test lint check demo scan-demo scan-demo-all ui menu sample-report hooks scanners docs-pdf \n	demo-clean demo-leak demo-deleted demo-decoys demo-risky demo-cleanup doctor ci-report
 
 setup:
 	$(PYTHON) -m venv .venv
@@ -73,3 +83,27 @@ scanners:
 
 docs-pdf:
 	"$(VENV_PY)" tools/docs_pdf.py
+
+demo-clean:
+	"$(VENV_PY)" -m securegate demo-pr clean
+
+demo-leak:
+	"$(VENV_PY)" -m securegate demo-pr leak
+
+demo-deleted:
+	"$(VENV_PY)" -m securegate demo-pr deleted-later
+
+demo-decoys:
+	"$(VENV_PY)" -m securegate demo-pr decoys
+
+demo-risky:
+	"$(VENV_PY)" -m securegate demo-pr risky
+
+demo-cleanup:
+	"$(VENV_PY)" -m securegate demo-cleanup
+
+doctor:
+	"$(VENV_PY)" -m securegate doctor
+
+ci-report:
+	"$(VENV_PY)" -m securegate ci-report

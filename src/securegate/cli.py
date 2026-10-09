@@ -10,14 +10,21 @@ import contextlib
 import logging
 import os
 import sys
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from pathlib import Path
 
 from securegate import __version__
+from securegate.ci_report import download_report, merge_line
 from securegate.demo.app import AUTHOR_NAME
 from securegate.demo.generator import generate
+from securegate.demo.pull_requests import cleanup, open_demo_pr, save_last_demo
+from securegate.demo.scenarios import NAMES as SCENARIOS
 from securegate.demo.token import new_demo_token
+from securegate.doctor import exit_code as doctor_exit_code
+from securegate.doctor import run_checks
 from securegate.errors import SecureGateError
+from securegate.finding import DECISIONS
+from securegate.github import Tools, real_tools
 from securegate.mask import default_state_dir, load_hmac_key
 from securegate.outputs import Targets, write_outputs
 from securegate.pipeline import LABELS, ScannerSetup, parse_scanners, run_scan
@@ -135,6 +142,45 @@ def build_parser() -> argparse.ArgumentParser:
     commands.add_parser(
         "menu", help="open the menu: scan, see the rules and open the dashboard without typing"
     )
+
+    demo_pr = commands.add_parser(
+        "demo-pr", help="open a demo pull request on GitHub that shows the merge gate at work"
+    )
+    demo_pr.add_argument(
+        "scenario",
+        choices=SCENARIOS,
+        help="clean (green), leak (red), deleted-later (still red), decoys (green, explained) "
+        "or risky (green, with warnings)",
+    )
+    commands.add_parser(
+        "demo-cleanup", help="close every demo pull request and delete every demo/ branch"
+    )
+    commands.add_parser(
+        "doctor", help="check that this laptop and the GitHub repository are ready for the demo"
+    )
+    ci_report = commands.add_parser(
+        "ci-report", help="download findings.json from the merge gate and open the dashboard"
+    )
+    which = ci_report.add_mutually_exclusive_group()
+    which.add_argument(
+        "--run", type=int, metavar="ID", help="the run to download (default: the newest)"
+    )
+    which.add_argument(
+        "--pr",
+        type=int,
+        metavar="NUMBER",
+        help="the run for the newest commit of this pull request",
+    )
+    ci_report.add_argument(
+        "--wait", action="store_true", help="wait until the run has finished (up to 15 minutes)"
+    )
+    ci_report.add_argument("--out", default="findings-ci.json", help="default: %(default)s")
+    ci_report.add_argument(
+        "--port", type=int, default=DASHBOARD_PORT, help="port on 127.0.0.1 (default: %(default)s)"
+    )
+    ci_report.add_argument(
+        "--no-open", action="store_true", help="download only; do not open the dashboard"
+    )
     return parser
 
 
@@ -144,8 +190,8 @@ def main(
     runner: gitleaks.Runner | None = None,
     tool_runners: Mapping[str, ToolRunner] | None = None,
 ) -> int:
-    """Run one command. `runner` replaces Gitleaks and `tool_runners` the other scanners
-    (by name: "trufflehog", "semgrep", "bandit"); tests pass fakes."""
+    """Run one command. `runner` replaces Gitleaks and `tool_runners` the other programs
+    (by name: "trufflehog", "semgrep", "bandit", "git", "gh"); tests pass fakes."""
     _tolerant_console()
     args = build_parser().parse_args(argv)
     runner = runner or gitleaks.subprocess_runner
@@ -165,6 +211,14 @@ def main(
             return EXIT_PASS
         if args.command == "menu":
             return _menu(runner)
+        if args.command == "demo-pr":
+            return _demo_pr(args, _tools(tool_runners or {}))
+        if args.command == "demo-cleanup":
+            return _demo_cleanup(_tools(tool_runners or {}))
+        if args.command == "doctor":
+            return _doctor(runner, tool_runners or {})
+        if args.command == "ci-report":
+            return _ci_report(args, _tools(tool_runners or {}))
         return _scan(args, runner, tool_runners or {})
     except SecureGateError as err:
         print(f"securegate: error: {err}", file=sys.stderr)
@@ -346,6 +400,87 @@ def _summary(args: argparse.Namespace) -> int:
     report = load_report(Path(args.report))
     print(render_summary(report), end="")
     return EXIT_ERROR if isinstance(report, ReportProblem) else EXIT_PASS
+
+
+def _tools(tool_runners: Mapping[str, ToolRunner]) -> Tools:
+    real = real_tools()
+    return Tools(git=tool_runners.get("git") or real.git, gh=tool_runners.get("gh") or real.gh)
+
+
+def _demo_pr(args: argparse.Namespace, tools: Tools) -> int:
+    opened = open_demo_pr(args.scenario, Path.cwd(), tools)
+    print(f"Opened a demo pull request: {opened.url}")
+    print(f"  branch:   {opened.branch}")
+    print(f"  contains: {opened.scenario.story.replace('`', '')}")
+    print(f"  expected: {opened.scenario.expected}")
+    last = save_last_demo(opened)
+    if last is not None:
+        print(f"Its result, in about a minute: securegate ci-report --pr {last.number} --wait")
+    print("Never merge it; `make demo-cleanup` closes every demo pull request.")
+    return EXIT_PASS
+
+
+def _demo_cleanup(tools: Tools) -> int:
+    done = cleanup(Path.cwd(), tools)
+    print(f"Closed {len(done.closed)} demo pull requests" + _listed(f"#{n}" for n in done.closed))
+    print(
+        f"Deleted {len(done.remote_deleted)} more demo branches on origin"
+        + _listed(done.remote_deleted)
+    )
+    print(f"Deleted {len(done.local_deleted)} demo branches here" + _listed(done.local_deleted))
+    for branch in done.kept:
+        print(f"Kept {branch}: it is checked out here. Switch to main and run this again.")
+    return EXIT_PASS
+
+
+def _listed(items: Iterable[str]) -> str:
+    shown = list(items)
+    return f": {', '.join(shown)}" if shown else ""
+
+
+def _doctor(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> int:
+    checks = run_checks(
+        Path.cwd(),
+        _tools(tool_runners),
+        gitleaks_version=lambda: gitleaks.gitleaks_version(runner),
+        tool_runners=tool_runners,
+    )
+    for item in checks:
+        print(item.line())
+    failed = sum(item.status == "FAIL" for item in checks)
+    print()
+    if failed:
+        print(f"{failed} check failed." if failed == 1 else f"{failed} checks failed.")
+    else:
+        print("All checks passed.")
+    return doctor_exit_code(checks)
+
+
+def _ci_report(args: argparse.Namespace, tools: Tools) -> int:
+    done = download_report(
+        Path.cwd(),
+        tools,
+        Path(args.out),
+        run_id=args.run,
+        pull_request=args.pr,
+        wait=args.wait,
+        say=print,
+    )
+    run, report = done.run, done.report
+    check_result = {"success": "green", "failure": "red"}.get(run.conclusion, run.conclusion)
+    print(f"The merge gate's check on {run.branch} is {check_result} (run {run.id}).")
+    counts = ", ".join(f"{report.count(decision)} {decision}" for decision in DECISIONS)
+    print(f"SecureGate said: {report.result} ({counts})")
+    merging = merge_line(run, done.merge_state)
+    if merging:
+        print(merging)
+    print(f"Saved its findings.json (masked values only) to {done.saved}")
+    if args.no_open:
+        print(f"Open it with: securegate ui --report {done.saved} --open")
+        return EXIT_PASS
+    from securegate.ui.server import serve
+
+    return serve(done.saved, port=args.port, open_browser=True)
 
 
 def _version(runner: gitleaks.Runner, tool_runners: Mapping[str, ToolRunner]) -> int:

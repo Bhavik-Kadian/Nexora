@@ -2,8 +2,8 @@
 
 The Markdown files stay the source: GitHub shows them and the gates scan them for secrets
 (Gitleaks skips PDFs). Each page becomes HTML styled with the dashboard's design tokens, and
-headless Microsoft Edge (or Chrome) prints it to docs/pdf/<name>.pdf. The one Mermaid diagram
-is drawn first, with Mermaid loaded from a pinned address and checked against a pinned hash, so
+headless Microsoft Edge (or Chrome) prints it to docs/pdf/<name>.pdf. Mermaid diagrams are
+drawn first, with Mermaid loaded from a pinned address and checked against a pinned hash, so
 only that step needs the internet. docs/pdf/manifest.json records which version of each page
 its PDF was built from: only changed pages are rebuilt, and a test fails when a PDF is stale.
 """

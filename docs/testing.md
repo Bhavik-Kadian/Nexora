@@ -88,6 +88,12 @@ When TruffleHog, Semgrep and Bandit are installed (`make scanners`), more scorec
 
 The numbers are what really happens. We don't change the rules just to make them look better. A miss is a finding about the scanner: write it down in [Decisions](decisions.md).
 
+## Test the demo pull requests
+
+`tests/test_demo_kit.py` checks `securegate demo-pr`, `demo-cleanup`, `doctor` and `ci-report` without touching GitHub: a real `git` works on a throwaway repository whose "GitHub" is a folder next to it, and a stand-in for `gh` records every command. The tests prove that a demo pull request is built from origin/main, pushes exactly one new `demo/` branch and never main, refuses a folder with uncommitted changes, and never prints a fake value; that clean-up only touches `demo/` branches, never a fork's; and that each scene gets the decision it promises, from the policy and from the real Gitleaks.
+
+On GitHub itself, run the five scenes once: [Demo: the merge gate](demo-script.md). `make doctor` first says whether everything is ready.
+
 ## Same seed, same repo
 
 `make demo` always uses seed 42, a number that fixes every random choice. The same catalog and seed always build exactly the same repo, so results can be compared over time. To try other values:

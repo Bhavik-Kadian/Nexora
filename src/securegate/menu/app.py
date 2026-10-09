@@ -3,18 +3,23 @@
 Each choice runs the securegate commands a person would type, through `run_command`, and shows
 each command before running it. So the exit codes, masking and fail-closed checks are exactly
 those of the CLI. Apart from that, the menu only reads: policy.yaml for the rules, the last
-report through the dashboard's loader, which refuses any value that is not masked, and the pull
-request comment that a scan wrote (made from that same checked report).
+report through the dashboard's loader, which refuses any value that is not masked, the pull
+request comment that a scan wrote (made from that same checked report), and the note that
+`securegate demo-pr` leaves about the pull request it opened (reports/demo-pr.json). It opens
+that pull request's page in the browser when asked, and only if its link is a GitHub pull
+request link.
 """
 
 import re
 import textwrap
+import webbrowser
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from securegate import __version__
 from securegate.demo.generator import MARKER_FILE
+from securegate.demo.pull_requests import LAST_DEMO, LastDemo, load_last_demo
 from securegate.errors import SecureGateError
 from securegate.finding import DECISIONS
 from securegate.menu.art import TAGLINE, banner, render
@@ -34,6 +39,7 @@ OWN_REPORT = Path("findings.json")
 REPORTS = Path("reports")  # what make scan-demo-all writes besides the report; Git ignores it
 DEMO_COMMENT = REPORTS / "demo-comment.md"
 OWN_COMMENT = REPORTS / "comment.md"
+CI_REPORT = Path("findings-ci.json")  # what ci-report downloads from the merge gate
 OTHER_SCANNERS = ("trufflehog", "semgrep", "bandit")  # installed by make scanners
 POLICY = Path("policy.yaml")
 LAPTOP_GATE = Path(".git/hooks/pre-commit")  # what make hooks installs
@@ -49,15 +55,34 @@ CHOICES = (
     ("6", "Show the rules", "what policy.yaml blocks, warns and ignores"),
     ("7", "Rebuild the demo project", "start it over, exactly as new"),
     ("8", "Check the setup", "versions, scanners, rules and the laptop gate"),
+    ("9", "The merge gate on GitHub", "demo pull requests, their results and reports"),
     ("Q", "Quit", ""),
+)
+# The merge gate screen (9). First the demo pull requests: key, `securegate demo-pr` scenario,
+# label and what the merge gate should say about it.
+GATE_DEMOS = (
+    ("1", "clean", "A harmless change", "green"),
+    ("2", "leak", "A payment key in the code", "red, rule 8 blocks the key"),
+    ("3", "deleted-later", "A key deleted in a later commit", "still red, every commit counts"),
+    ("4", "decoys", "Decoys that look like secrets", "green, each one explained"),
+    ("5", "risky", "Risky handling of secrets", "green, with warnings"),
+)
+GATE_CHOICES = (
+    ("6", "See the result", "of the last demo pull request, then its report"),
+    ("7", "Open the newest gate report", "of the last pull request checked, in the dashboard"),
+    ("8", "Close every demo pull request", "and delete the demo/ branches"),
+    ("9", "Check that all is ready", "scanners, rules, gh login and GitHub's settings"),
+    ("B", "Back to the main menu", ""),
 )
 LABEL_WIDTH = 32
 QUIT = ("q", "quit", "exit")
+BACK = ("b", "back", "q", "")
 DECISION_STYLES = {"block": BOLD + RED, "warn": BOLD + YELLOW, "ignore": GREY}
 RESULT_STYLES = {"PASS": BOLD + GREEN, "BLOCKED": BOLD + RED}
 
 RunCommand = Callable[[Sequence[str]], int]
 OpenDashboard = Callable[[Path, Callable[[], object]], object]
+OpenUrl = Callable[[str], object]
 
 
 class InputEnded(SecureGateError):
@@ -71,15 +96,18 @@ def run_menu(
     open_dashboard: OpenDashboard,
     gitleaks_version: str | None,
     program_found: Callable[[str], bool] | None = None,
+    open_url: OpenUrl | None = None,
 ) -> int:
     """Show the menu until the person chooses Q, then return exit code 0.
 
     `run_command` runs one securegate command and returns its exit code. `open_dashboard`
     shows a report in the dashboard until the function it is given returns. `program_found`
-    says whether a scanner such as trufflehog is installed (tests pass their own answer).
+    says whether a scanner such as trufflehog is installed, and `open_url` opens a pull
+    request's page in the browser (tests pass their own).
     """
     found = program_found or _installed
-    return Menu(terminal, run_command, open_dashboard, gitleaks_version, found).run()
+    url = open_url or webbrowser.open
+    return Menu(terminal, run_command, open_dashboard, gitleaks_version, found, url).run()
 
 
 def _installed(program: str) -> bool:
@@ -93,6 +121,7 @@ class Menu:
     open_dashboard: OpenDashboard
     gitleaks_version: str | None  # None: Gitleaks was not found
     program_found: Callable[[str], bool] = field(default=_installed)
+    open_url: OpenUrl = field(default=webbrowser.open)
     last_report: Path = DEMO_REPORT  # the report the dashboard opens
     last_comment: Path = DEMO_COMMENT  # the pull request comment that 3 shows
     hint: str = ""  # shown under the choices on the next screen
@@ -107,6 +136,7 @@ class Menu:
             "6": self.rules,
             "7": self.rebuild_demo,
             "8": self.check_setup,
+            "9": self.merge_gate,
         }
         first = True
         while True:
@@ -118,18 +148,22 @@ class Menu:
                 return EXIT_PASS
             action = actions.get(choice)
             if action is None:
-                self.hint = "Type a number from 1 to 8, or Q to quit, then press Enter."
+                self.hint = "Type a number from 1 to 9, or Q to quit, then press Enter."
                 continue
-            self.say("")
-            try:
-                wait = action()  # True: keep the result on screen until Enter
-            except InputEnded:
-                raise
-            except SecureGateError as err:
-                self.say(f"securegate: error: {err}")
-                wait = True
-            if wait:
-                self.ask(f"\n{MARGIN}Press Enter to go back to the menu. ")
+            self.perform(action, back_to="the menu")
+
+    def perform(self, action: Callable[[], bool], *, back_to: str) -> None:
+        """Run one choice. Its result stays on screen until Enter when it returns True."""
+        self.say("")
+        try:
+            wait = action()
+        except InputEnded:
+            raise
+        except SecureGateError as err:
+            self.say(f"securegate: error: {err}")
+            wait = True
+        if wait:
+            self.ask(f"\n{MARGIN}Press Enter to go back to {back_to}. ")
 
     # --- the first screen ---------------------------------------------------------------------
 
@@ -153,11 +187,14 @@ class Menu:
         self.say(f"{MARGIN}What do you want to do?")
         self.say("")
         for key, label, note in CHOICES:
-            shown = self.paint(key, BOLD + CYAN)
-            self.say(f"{MARGIN}  {shown}  {label:<{LABEL_WIDTH}}{self.paint(note, GREY)}".rstrip())
+            self.choice_line(key, label, note)
         self.say("")
         if self.hint:
             self.say(MARGIN + self.paint(self.hint, YELLOW))
+
+    def choice_line(self, key: str, label: str, note: str) -> None:
+        shown = self.paint(key, BOLD + CYAN)
+        self.say(f"{MARGIN}  {shown}  {label:<{LABEL_WIDTH}}{self.paint(note, GREY)}".rstrip())
 
     def status(self) -> list[tuple[str, str]]:
         if self.gitleaks_version:
@@ -387,6 +424,130 @@ class Menu:
         self.say(f"{MARGIN}Rules: {rules}")
         self.say(f"{MARGIN}Laptop gate: {gate}")
         self.say(f"{MARGIN}Demo: {self.demo_status()}")
+        self.say(f"{MARGIN}Merge gate on GitHub: choose 9, then 9 to check it")
+        return True
+
+    # --- 9: the merge gate on GitHub ----------------------------------------------------------
+
+    def merge_gate(self) -> bool:
+        actions: dict[str, Callable[[], bool]] = {
+            "6": self.gate_result,
+            "7": self.newest_gate_report,
+            "8": self.close_demos,
+            "9": self.gate_doctor,
+        }
+        for key, scenario, _, _ in GATE_DEMOS:
+            actions[key] = lambda scenario=scenario: self.open_demo(scenario)
+        hint = ""
+        while True:
+            self.gate_home(hint)
+            choice = self.ask(f"{MARGIN}Type a number and press Enter (B: back): ").strip().lower()
+            hint = ""
+            if choice in BACK:
+                return False
+            action = actions.get(choice)
+            if action is None:
+                hint = "Type a number from 1 to 9, or B to go back, then press Enter."
+                continue
+            self.perform(action, back_to="the merge gate menu")
+
+    def gate_home(self, hint: str) -> None:
+        self.say(CLEAR if self.terminal.color else "")
+        self.say(MARGIN + self.paint("The merge gate on GitHub", BOLD + CYAN))
+        self.say("")
+        self.tell(
+            "Every pull request to main is scanned by Gitleaks, TruffleHog, Semgrep and Bandit "
+            "before it can be merged. A demo pull request shows the gate at work on GitHub, with "
+            "fake values made at random. Never merge one."
+        )
+        self.say("")
+        last = load_last_demo(LAST_DEMO)
+        shown = f"#{last.number}, {last.title}: {last.url}" if last else "none yet"
+        self.say(f"{MARGIN}{self.paint('Last demo'.ljust(12), GREY)}{shown}")
+        self.say("")
+        self.say(f"{MARGIN}Open a demo pull request:")
+        self.say("")
+        for key, _, label, expected in GATE_DEMOS:
+            self.choice_line(key, label, f"expected: {expected}")
+        self.say("")
+        for key, label, note in GATE_CHOICES:
+            self.choice_line(key, label, note)
+        self.say("")
+        if hint:
+            self.say(MARGIN + self.paint(hint, YELLOW))
+
+    def open_demo(self, scenario: str) -> bool:
+        self.tell(
+            "Opening a demo pull request on GitHub. SecureGate builds it from main in a "
+            "temporary folder, so your own files stay as they are."
+        )
+        before = load_last_demo(LAST_DEMO)
+        code = self.securegate("demo-pr", scenario)
+        if code != EXIT_PASS:
+            self.tell(self.paint("No pull request was opened: the lines above say why.", RED))
+            return True
+        last = load_last_demo(LAST_DEMO)
+        if last is None or last == before:
+            return True
+        self.say("")
+        if self.yes("Open it in your browser? [Y/n] ", default=True):
+            self.open_url(last.url)
+        self.say("")
+        if not self.yes(
+            "Wait here for the merge gate's result (about a minute)? [Y/n] ", default=True
+        ):
+            self.tell("Choose 6 later to see its result.")
+            return True
+        self.say("")
+        return self.result_of(last)
+
+    def gate_result(self) -> bool:
+        last = load_last_demo(LAST_DEMO)
+        if last is None:
+            self.tell("There is no demo pull request yet. Choose 1 to 5 to open one first.")
+            return True
+        self.tell(f"Pull request #{last.number}, {last.title}. Expected: {last.expected}")
+        self.say("")
+        return self.result_of(last)
+
+    def result_of(self, last: LastDemo) -> bool:
+        code = self.securegate(
+            "ci-report", "--pr", str(last.number), "--wait", "--no-open", "--out", str(CI_REPORT)
+        )
+        return self.after_gate_report(code)
+
+    def newest_gate_report(self) -> bool:
+        code = self.securegate("ci-report", "--no-open", "--out", str(CI_REPORT))
+        return self.after_gate_report(code)
+
+    def after_gate_report(self, code: int) -> bool:
+        if code != EXIT_PASS:
+            self.tell(self.paint("No report was downloaded: the lines above say why.", RED))
+            return True
+        self.last_report = CI_REPORT
+        self.say("")
+        if not self.yes("Open the report in the dashboard? [Y/n] ", default=True):
+            return True
+        return self.show_dashboard(CI_REPORT)
+
+    def close_demos(self) -> bool:
+        if not self.yes(
+            "This closes every open demo pull request and deletes every demo/ branch, on GitHub "
+            "and here. Go on? [y/N] ",
+            default=False,
+        ):
+            return False
+        self.say("")
+        self.securegate("demo-cleanup")
+        return True
+
+    def gate_doctor(self) -> bool:
+        if self.securegate("doctor") == EXIT_BLOCK:
+            self.say("")
+            self.tell(
+                "Each FAIL line says what to fix. The one-time setting on GitHub is explained in "
+                "docs/merge-gate.md."
+            )
         return True
 
     # --- helpers ------------------------------------------------------------------------------

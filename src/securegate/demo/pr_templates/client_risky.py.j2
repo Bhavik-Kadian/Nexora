@@ -1,0 +1,15 @@
+"""Connects to ACME Pay and the database. The token comes from the environment, but the code
+then writes it to the log, and the database password is written in the code."""
+
+import logging
+import os
+
+log = logging.getLogger(__name__)
+
+api_token = os.environ["ACME_PAY_API_KEY"]
+DB_PASSWORD = "{{ password }}"
+
+
+def connect() -> dict[str, str]:
+    log.info("Connecting to ACME Pay with %s", api_token)
+    return {"user": "payments", "password": DB_PASSWORD}

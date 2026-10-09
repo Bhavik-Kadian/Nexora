@@ -1,0 +1,9 @@
+"""Charges a customer through ACME Pay (SecureGate's invented payment provider)."""
+
+import os
+
+ACME_PAY_API_KEY = os.environ["ACME_PAY_API_KEY"]
+
+
+def charge(amount_cents: int) -> dict[str, object]:
+    return {"amount": amount_cents, "currency": "eur", "key_set": bool(ACME_PAY_API_KEY)}
