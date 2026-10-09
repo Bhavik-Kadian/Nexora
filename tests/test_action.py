@@ -189,7 +189,8 @@ def test_every_step_is_explained_in_a_comment() -> None:
 def test_the_docs_show_the_action_at_this_version() -> None:
     usage = f"uses: Bhavik-Kadian/Nexora@v{__version__}"
     assert usage in ACTION_TEXT
-    assert usage in (REPO_ROOT / "docs" / "install.md").read_text(encoding="utf-8")
+    for page in ("README.md", "docs/install.md"):
+        assert usage in (REPO_ROOT / page).read_text(encoding="utf-8"), page
 
 
 def test_constraints_pin_every_direct_dependency_at_the_same_version() -> None:
